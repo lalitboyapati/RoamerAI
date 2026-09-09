@@ -59,6 +59,7 @@ FAST = "features_fast"
 DEEP = "features_deep"
 PRESET_FAST = "roamer_fast"
 PRESET_DEEP = "roamer_deep"
+SYNONYM_SET = "roamer"                 # Typesense 29+ global synonym set, referenced from the presets
 EMBED_MODEL = "ts/all-MiniLM-L12-v2"   # built-in, 384-dim, free, CPU-friendly
 
 # ----------------------------------------------------------------------------- schemas
@@ -102,6 +103,7 @@ PRESETS = {
         "per_page": 250,                 # Typesense max; enough to light up the scene
         "exclude_fields": "descriptions",
         "highlight_fields": "description",
+        "synonym_sets": SYNONYM_SET,
     },
     PRESET_DEEP: {
         "query_by": "description,descriptions,embedding",
@@ -116,11 +118,14 @@ PRESETS = {
         "per_page": 250,
         "exclude_fields": "embedding,descriptions",
         "highlight_fields": "description",
+        "synonym_sets": SYNONYM_SET,
     },
 }
 
 # ----------------------------------------------------------------------------- synonyms
 # Multi-way synonyms: searching any term matches all. Kept tight to avoid noise.
+# Typesense 29+ stores these once globally as a "synonym set"; the presets opt in
+# via `synonym_sets`, so both collections share one definition.
 SYNONYMS = {
     # medicine / biology
     "mri": ["mri", "magnetic resonance imaging"],
@@ -179,10 +184,9 @@ def cmd_setup(args) -> None:
         ensure(req("PUT", f"/presets/{name}", json={"value": value}))
         print(f"preset {name} upserted")
 
-    for coll in (FAST, DEEP):
-        for sid, terms in SYNONYMS.items():
-            ensure(req("PUT", f"/collections/{coll}/synonyms/{sid}", json={"synonyms": terms}))
-        print(f"{len(SYNONYMS)} synonym sets on {coll}")
+    items = [{"id": sid, "synonyms": terms} for sid, terms in SYNONYMS.items()]
+    ensure(req("PUT", f"/synonym_sets/{SYNONYM_SET}", json={"items": items}))
+    print(f"synonym set '{SYNONYM_SET}': {len(items)} entries (used by both presets)")
 
     # search-only key for the browser: can search these collections and nothing else.
     r = req("POST", "/keys", json={

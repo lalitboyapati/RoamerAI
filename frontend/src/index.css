@@ -1,0 +1,388 @@
+/* VISUAL-DIRECTION.md: the screen is black and the model is the only thing in
+   it. No cards, no borders, no backgrounds — text floats on the void, and every
+   label sits next to the thing it labels. */
+
+:root {
+  --void: #000000;
+  --scaffold: #222222;
+  --structure: #444444;
+  --muted: #888888;
+  --text: #dddddd;
+  --white: #ffffff;
+  --blue: #58c4dd;
+  --blue-deep: #29abca;
+  --yellow: #ffff00;
+  --red: #fc6255;
+  --green: #83c167;
+  --gold: #f0ac5f;
+
+  font-family: ui-sans-serif, Inter, system-ui, sans-serif;
+  color: var(--text);
+  background: var(--void);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+
+html, body, #root {
+  margin: 0;
+  height: 100%;
+  background: var(--void);
+  overflow: hidden;
+}
+
+canvas { display: block; cursor: grab; }
+canvas:active { cursor: grabbing; }
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+
+a { color: inherit; text-decoration: none; }
+
+.label,
+.tagline,
+.ends,
+.node-label-loc,
+.band-role,
+.tick-count,
+.hint,
+figcaption,
+.s-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.s-label { fill: var(--muted); font-size: 8px; }
+
+/* ---------------------------------------------------------------- hud shell */
+.hud {
+  position: fixed;
+  inset: 0;
+  padding: 22px 30px;
+  pointer-events: none;
+}
+
+.hud button,
+.hud input,
+.hud a { pointer-events: auto; }
+
+.progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 1px;
+  background: var(--blue);
+  animation: grow 1.1s ease-out infinite;
+}
+@keyframes grow { from { width: 0; } to { width: 100%; } }
+
+header {
+  display: flex;
+  align-items: baseline;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.wordmark { font-size: 13px; letter-spacing: 0.22em; }
+.tagline { text-transform: none; letter-spacing: 0.02em; font-size: 12px; }
+
+/* --------------------------------------------------------------- controls */
+.controls {
+  margin-top: 26px;
+  display: flex;
+  align-items: flex-end;
+  gap: 44px;
+  flex-wrap: wrap;
+}
+
+.field { display: flex; flex-direction: column; gap: 6px; }
+
+.field input {
+  width: min(400px, 40vw);
+  font: inherit;
+  font-size: 22px;
+  color: var(--text);
+  background: none;
+  border: 0;
+  border-bottom: 1px solid var(--structure);
+  padding: 3px 0;
+  outline: none;
+  transition: border-color 150ms;
+}
+.field input::placeholder { color: var(--structure); }
+.field input:focus { border-bottom-color: var(--blue); }
+
+.toggle { display: flex; flex-direction: column; gap: 8px; padding-bottom: 5px; }
+.toggle-row { display: flex; align-items: baseline; }
+.toggle button { font-size: 13px; color: var(--muted); transition: color 150ms; }
+.toggle button:hover { color: var(--text); }
+.toggle button.on { color: var(--text); font-size: 14px; }
+.toggle .sep { color: var(--structure); margin: 0 8px; }
+
+/* --------------------------------------------------------------- examples */
+.examples {
+  margin-top: 18px;
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.examples button {
+  font-size: 12px;
+  color: var(--muted);
+  border-bottom: 1px solid transparent;
+  transition: color 150ms, border-color 150ms;
+}
+.examples button:hover { color: var(--text); border-bottom-color: var(--structure); }
+.examples button.on { color: var(--blue); border-bottom-color: var(--blue-deep); }
+
+/* ---------------------------------------------------------------- messages */
+.msg { margin: 16px 0 0; font-size: 13px; color: var(--muted); }
+.msg.error { color: var(--red); }
+.msg.centred { max-width: 380px; line-height: 1.5; }
+
+.inline-link {
+  font-size: 13px;
+  color: var(--blue);
+  border-bottom: 1px solid var(--blue-deep);
+}
+.inline-link:hover { color: var(--yellow); border-bottom-color: var(--yellow); }
+
+.hint {
+  position: absolute;
+  left: 30px;
+  bottom: 18px;
+  margin: 0;
+}
+
+/* ------------------------------------------------------------- tick column */
+.ticks {
+  position: absolute;
+  left: 30px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  pointer-events: auto;
+}
+.ticks > .label { margin-bottom: 8px; }
+
+.tick {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 13px;
+  color: var(--muted);
+}
+.tick-name {
+  width: 26px;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  opacity: 0.55;
+}
+.tick-mark {
+  width: 12px;
+  height: 1px;
+  background: var(--structure);
+  transition: width 140ms, background 140ms;
+}
+.tick.hit .tick-mark { background: var(--blue-deep); width: 18px; }
+.tick:hover .tick-name,
+.tick.on .tick-name { opacity: 1; color: var(--yellow); }
+.tick:hover .tick-mark,
+.tick.on .tick-mark { background: var(--yellow); width: 26px; }
+.tick-count {
+  font-size: 10px;
+  color: var(--yellow);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* -------------------------------------------------------------- right rail */
+.right-rail {
+  position: absolute;
+  right: 30px;
+  top: 150px;
+  bottom: 24px;
+  width: min(360px, 32vw);
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+  overflow-y: auto;
+  scrollbar-width: none;
+  pointer-events: auto;
+}
+.right-rail::-webkit-scrollbar { display: none; }
+
+.rail-block { display: flex; flex-direction: column; gap: 12px; flex: 0 0 auto; }
+
+.readout { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; }
+.score {
+  font-size: 56px;
+  line-height: 1.02;
+  font-variant-numeric: tabular-nums;
+}
+.stats {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  min-height: 16px;
+}
+
+/* --------------------------------------------------------------- layer bar */
+.layerbar { width: 100%; }
+.bars { display: flex; align-items: flex-end; gap: 2px; height: 46px; }
+.bar {
+  flex: 1;
+  min-width: 2px;
+  background: var(--blue);
+  opacity: 0.8;
+  transition: background 120ms, opacity 120ms;
+}
+.bar:hover, .bar.on { background: var(--yellow); opacity: 1; }
+.ends { display: flex; justify-content: space-between; margin-top: 6px; }
+
+/* --------------------------------------------------------------- guidance */
+.guidance { display: flex; flex-direction: column; gap: 10px; }
+
+.verdict { margin: 0; font-size: 15px; }
+.verdict.strong { color: var(--green); }
+.verdict.partial { color: var(--gold); }
+.verdict.weak,
+.verdict.absent { color: var(--red); }
+
+.detail, .action { margin: 0; font-size: 12.5px; line-height: 1.5; color: var(--muted); }
+.action { color: var(--text); }
+
+.bands { display: flex; flex-direction: column; gap: 7px; }
+.band {
+  display: grid;
+  grid-template-columns: 106px 1fr;
+  grid-template-areas: "name meter" "role role";
+  gap: 3px 10px;
+  align-items: center;
+  text-align: left;
+}
+.band-label {
+  grid-area: name;
+  font-size: 11px;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+}
+.band-meter {
+  grid-area: meter;
+  height: 2px;
+  background: var(--scaffold);
+  display: block;
+}
+.band-meter > span { display: block; height: 100%; background: var(--blue-deep); }
+.band-role { grid-area: role; text-transform: none; letter-spacing: 0.02em; }
+.band:hover .band-label { color: var(--yellow); }
+.band:hover .band-meter > span { background: var(--yellow); }
+
+.focus-link {
+  align-self: flex-start;
+  font-size: 12px;
+  color: var(--blue);
+  border-bottom: 1px solid var(--blue-deep);
+}
+.focus-link:hover { color: var(--yellow); border-bottom-color: var(--yellow); }
+
+/* ------------------------------------------------------------- layer panel */
+.layerpanel {
+  position: absolute;
+  left: 96px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: min(330px, 30vw);
+  max-height: 62vh;
+  overflow-y: auto;
+  scrollbar-width: none;
+  border-left: 1px solid var(--structure);
+  padding-left: 16px;
+  pointer-events: auto;
+  animation: slide 220ms ease-out;
+}
+.layerpanel::-webkit-scrollbar { display: none; }
+@keyframes slide { from { opacity: 0; transform: translate(-8px, -50%); } }
+
+.layerpanel header { justify-content: space-between; align-items: baseline; }
+.layerpanel .close { font-size: 11px; color: var(--muted); }
+.layerpanel .close:hover { color: var(--yellow); }
+
+.flow { margin: 10px 0 16px; font-size: 12px; color: var(--muted); }
+.flow .arrow { color: var(--structure); margin: 0 3px; }
+.flow .plus { color: var(--blue-deep); }
+
+.layer-model + .layer-model { margin-top: 18px; }
+.layer-stat {
+  margin: 0 0 8px;
+  font-size: 11.5px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.model-name { display: block; color: var(--text); font-size: 12.5px; margin-bottom: 2px; }
+
+.layerpanel ul { list-style: none; margin: 0; padding: 0; }
+.layerpanel li { font-size: 12.5px; line-height: 1.45; margin-bottom: 8px; color: var(--text); }
+.layerpanel li:hover { color: var(--yellow); }
+.layerpanel li.none { color: var(--muted); }
+.feat-idx {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  margin-right: 7px;
+  font-size: 11px;
+}
+
+/* --------------------------------------------------------------- schematic */
+.schematic {
+  position: absolute;
+  left: 24px;
+  bottom: 48px;
+  margin: 0;
+  width: 218px;
+  pointer-events: none;
+  opacity: 0.9;
+}
+figcaption { margin-top: 2px; text-transform: none; letter-spacing: 0.02em; line-height: 1.4; }
+
+/* -------------------------------------------------------------- 3D labels */
+.node-label {
+  transform: translate(14px, -50%);
+  width: max-content;
+  max-width: 260px;
+  font-size: 12.5px;
+  line-height: 1.35;
+  text-shadow: 0 0 6px #000, 0 0 12px #000;
+}
+.node-label-loc { display: block; margin-bottom: 2px; }
+
+.scene-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  opacity: 0.6;
+  white-space: nowrap;
+  text-shadow: 0 0 6px #000;
+  transform: translateY(-50%);
+}
+.scene-label.right { transform: translate(-100%, -50%); }
+.scene-label.centre { transform: translate(-50%, -50%); }
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}

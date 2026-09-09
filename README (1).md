@@ -53,6 +53,42 @@ python scripts/index_typesense.py import deep         # ~58k docs, server-side e
 python scripts/index_typesense.py search "protein folding" --mode deep --model gemma-2-2b
 ```
 
+## Run it now (local Typesense, no cloud account)
+
+```bash
+# 1. data: Neuronpedia -> data/*.jsonl + manifest.json  (~2 min, network-bound)
+pip install -r scripts/requirements.txt
+python pull_data.py
+
+# 2. search backend: one container is the whole backend
+docker run -d --name roamerai-ts -p 8108:8108 -v /tmp/typesense-data:/data \
+  typesense/typesense:30.2 --data-dir /data --api-key=roamerai-dev-admin --enable-cors
+cp .env.example .env
+
+# 3. collections, presets, synonyms, and the search-only key (printed once)
+python index_typesense.py setup
+python index_typesense.py import fast     # ~1.5M docs, ~90 s
+python index_typesense.py import deep     # ~59k docs, server-side embeddings, ~4 min
+
+# 4. frontend
+cd frontend
+cp .env.example .env                      # paste the search-only key from step 3
+npm install && npm run dev                # http://localhost:5173
+```
+
+Sanity check without the browser:
+`python index_typesense.py search "protein folding" --mode deep --model gemma-2-2b`
+
+## Using it
+
+Type a concept from your field. Every SAE feature whose description encodes it
+lights up in the 3D map, and the right rail answers the actual question: is this
+model's grasp of the concept strong enough to ship, and if not, which layers
+should an adapter target. **Fast** requires every query word to appear in a
+feature description; **deep** matches meaning, which is the only way multi-word
+clinical phrases land. Click any layer — in the stack, the tick column, or the
+bar chart — to fly to it and read what matched there.
+
 ## One-paragraph pitch
 
 Teams adopting a small, domain-specific LLM (for speed, cost, and fewer hallucinations) have no quick way to check whether that model has actually learned their field's concepts. RoamerAI indexes ~1.5M human-readable descriptions of sparse-autoencoder features from Gemma 2 2B and Llama 3.1 8B into Typesense. Type "protein folding" and the features that encode it glow inside a 3D map of the model, with a coverage score and a per-layer bar. Switch models to compare. Fast mode is exact keyword search over everything; Deep mode is Typesense hybrid semantic search. Nothing runs on a GPU.
