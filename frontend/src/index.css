@@ -175,6 +175,7 @@ header {
   pointer-events: auto;
 }
 .ticks > .label { margin-bottom: 8px; }
+.ticks { width: 96px; }
 
 .tick {
   display: flex;
@@ -182,6 +183,7 @@ header {
   gap: 7px;
   height: 13px;
   color: var(--muted);
+  position: relative;
 }
 .tick-name {
   width: 26px;
@@ -304,20 +306,23 @@ header {
 /* ------------------------------------------------------------- layer panel */
 .layerpanel {
   position: absolute;
-  left: 96px;
+  left: 138px;
   top: 50%;
   transform: translateY(-50%);
   width: min(330px, 30vw);
-  max-height: 62vh;
+  max-height: 66vh;
   overflow-y: auto;
   scrollbar-width: none;
+  background: rgba(0, 0, 0, 0.88);
+  border: 1px solid var(--scaffold);
   border-left: 1px solid var(--structure);
-  padding-left: 16px;
+  padding: 14px 16px 16px;
   pointer-events: auto;
   animation: slide 220ms ease-out;
 }
 .layerpanel::-webkit-scrollbar { display: none; }
 @keyframes slide { from { opacity: 0; transform: translate(-8px, -50%); } }
+.layerpanel header { margin-bottom: 2px; }
 
 .layerpanel header { justify-content: space-between; align-items: baseline; }
 .layerpanel .close { font-size: 11px; color: var(--muted); }
@@ -494,3 +499,68 @@ figcaption { margin-top: 2px; text-transform: none; letter-spacing: 0.02em; line
 /* grab mode */
 .grab-mode { cursor: grab; }
 .grab-mode:active { cursor: grabbing; }
+
+/* ------------------------------------------------------------ view bar */
+.viewbar {
+  position: absolute;
+  left: 268px;
+  bottom: 18px;
+  pointer-events: auto;
+}
+.viewbar-row { display: flex; align-items: baseline; gap: 9px; }
+.viewbar-row > .label { margin-right: 1px; }
+.viewbar button {
+  font-size: 12px;
+  color: var(--muted);
+  transition: color 150ms;
+}
+.viewbar button:hover { color: var(--text); }
+.viewbar button.on { color: var(--text); }
+.viewbar .sep { color: var(--structure); }
+.vb-hint {
+  margin-left: 12px;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--structure);
+}
+.viewbar .qmark {
+  margin-left: 4px;
+  width: 17px; height: 17px;
+  border: 1px solid var(--scaffold);
+  border-radius: 50%;
+  font-size: 10px;
+  line-height: 1;
+  color: var(--muted);
+  align-self: center;
+}
+.viewbar .qmark:hover, .viewbar .qmark.on { border-color: var(--structure); color: var(--text); }
+
+.shortcuts {
+  position: absolute;
+  left: 0;
+  bottom: 28px;
+  width: 300px;
+  padding: 14px 16px 15px;
+  background: rgba(0, 0, 0, 0.94);
+  border: 1px solid var(--scaffold);
+  animation: slide-up 160ms ease-out;
+}
+@keyframes slide-up { from { opacity: 0; transform: translateY(5px); } }
+.shortcuts dl { margin: 9px 0 0; display: flex; flex-direction: column; gap: 6px; }
+.shortcuts dl > div { display: flex; align-items: baseline; gap: 12px; }
+.shortcuts dt {
+  flex: none;
+  min-width: 92px;
+  font-size: 11px;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.shortcuts dd { margin: 0; font-size: 11.5px; color: var(--muted); line-height: 1.35; }
+
+.hud.focus .viewbar { display: none; }
+
+/* header buttons stay a pair; only the first one pushes off to the right */
+.focus-btn + .focus-btn { margin-left: 0; }
+/* the hover readout floats over the scene rather than widening the tick row */
+.tick-count { position: absolute; left: 52px; white-space: nowrap; }

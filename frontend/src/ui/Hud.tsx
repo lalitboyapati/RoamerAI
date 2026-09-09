@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { modelsFor, useStore } from "../store";
-import type { DragMode, Mode, Shape, View } from "../types";
+import type { Mode, Shape, View } from "../types";
 import { Examples } from "./Examples";
 import { Guidance } from "./Guidance";
 import { LayerBar } from "./LayerBar";
@@ -11,14 +11,11 @@ import { Schematic } from "./Schematic";
 import { Legend } from "./Legend";
 import { CounterpartPanel } from "./Counterpart";
 import { Sources } from "./Sources";
+import { ViewBar } from "./ViewBar";
 
 const MODES: { id: Mode; label: string }[] = [
   { id: "fast", label: "fast" },
   { id: "deep", label: "deep" },
-];
-const DRAGS: { id: DragMode; label: string }[] = [
-  { id: "orbit", label: "turn" },
-  { id: "pan", label: "grab" },
 ];
 const SHAPES: { id: Shape; label: string }[] = [
   { id: "stack", label: "stack" },
@@ -74,7 +71,6 @@ export function Hud() {
   const toggleFocus = useStore((s) => s.toggleFocus);
   const shape = useStore((s) => s.shape);
   const setShape = useStore((s) => s.setShape);
-  const drag = useStore((s) => s.drag);
   const setDrag = useStore((s) => s.setDrag);
   const toggleSources = useStore((s) => s.toggleSources);
   const sourcesOpen = useStore((s) => s.sourcesOpen);
@@ -140,7 +136,6 @@ export function Hud() {
         <Toggle options={MODES} active={mode} onPick={setMode} hint="match by" />
         <Toggle options={VIEWS} active={view} onPick={setView} hint="model" />
         <Toggle options={SHAPES} active={shape} onPick={setShape} hint="shape" />
-        <Toggle options={DRAGS} active={drag} onPick={setDrag} hint="drag" />
       </div>
 
       <Examples />
@@ -186,11 +181,7 @@ export function Hud() {
         <Legend />
       </div>
 
-      <p className="hint">
-        {drag === "pan" ? "drag to move · right-drag to turn" : "drag to turn · right-drag to move"} · space swaps ·
-        scroll to zoom · click a layer to open it · click a lit feature for its counterpart · S for sources · G for globe ·
-        F for diagram only · double-click or R to reset
-      </p>
+      <ViewBar />
     </div>
   );
 }

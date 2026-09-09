@@ -13,9 +13,11 @@ export function LayerPanel() {
   const results = useStore((s) => s.results);
   const toggleIsolated = useStore((s) => s.toggleIsolated);
   const setHovered = useStore((s) => s.setHovered);
+  const q = useStore((s) => s.q);
 
   if (isolated === null || !manifest) return null;
   const models = modelsFor(view);
+  const searched = q.trim().length > 0;
 
   return (
     <aside className="layerpanel">
@@ -43,7 +45,8 @@ export function LayerPanel() {
           <div className="layer-model" key={m}>
             <p className="layer-stat">
               <span className="model-name">{model.display}</span>
-              {model.width.toLocaleString()} features here · {matched.toLocaleString()} matched
+              {model.width.toLocaleString()} features here
+              {searched && ` · ${matched.toLocaleString()} matched`}
             </p>
             <LayerPlot model={m} layer={isolated} />
             <ul>
@@ -57,7 +60,11 @@ export function LayerPanel() {
                   {f.description}
                 </li>
               ))}
-              {shown.length === 0 && <li className="none">nothing matched in this layer</li>}
+              {shown.length === 0 && (
+                <li className="none">
+                  {searched ? "nothing matched in this layer" : "search a concept to light these up"}
+                </li>
+              )}
             </ul>
           </div>
         );

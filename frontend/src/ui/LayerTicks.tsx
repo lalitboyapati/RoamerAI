@@ -35,7 +35,9 @@ export function LayerTicks() {
           >
             <span className="tick-name">{L % 5 === 0 || on ? `L${L}` : ""}</span>
             <span className="tick-mark" />
-            {on && <span className="tick-count">{hits} matched</span>}
+            {hoveredLayer === L && isolated === null && (
+              <span className="tick-count">{hits} matched</span>
+            )}
           </button>
         );
       })}
