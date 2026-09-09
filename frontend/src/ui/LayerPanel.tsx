@@ -14,6 +14,7 @@ export function LayerPanel() {
   const toggleIsolated = useStore((s) => s.toggleIsolated);
   const setHovered = useStore((s) => s.setHovered);
   const q = useStore((s) => s.q);
+  const toggleSources = useStore((s) => s.toggleSources);
 
   if (isolated === null || !manifest) return null;
   const models = modelsFor(view);
@@ -39,7 +40,8 @@ export function LayerPanel() {
         if (isolated >= model.n_layers) return null;
         const r = results[m];
         const matched = r?.perLayer[isolated] ?? 0;
-        const shown = (r?.features ?? []).filter((f) => f.layer === isolated).slice(0, 8);
+        const here = (r?.features ?? []).filter((f) => f.layer === isolated);
+        const shown = here.slice(0, 6);
 
         return (
           <div className="layer-model" key={m}>
@@ -66,6 +68,11 @@ export function LayerPanel() {
                 </li>
               )}
             </ul>
+            {here.length > shown.length && (
+              <button type="button" className="more" onClick={toggleSources}>
+                {here.length - shown.length} more · open sources →
+              </button>
+            )}
           </div>
         );
       })}

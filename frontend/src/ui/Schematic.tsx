@@ -1,4 +1,4 @@
-import { useStore } from "../store";
+import { modelsFor, useStore } from "../store";
 import { C } from "../palette";
 
 /**
@@ -11,6 +11,11 @@ export function Schematic() {
   const manifest = useStore((s) => s.manifest);
   const view = useStore((s) => s.view);
   const isolated = useStore((s) => s.isolated);
+  const results = useStore((s) => s.results);
+
+  // the legend takes this corner as soon as there is something to explain
+  const lit = modelsFor(view).some((m) => (results[m]?.features.length ?? 0) > 0);
+  if (lit) return null;
 
   const model = view === "compare" ? "gemma-2-2b" : view;
   const nLayers = manifest?.models[model]?.n_layers ?? 26;

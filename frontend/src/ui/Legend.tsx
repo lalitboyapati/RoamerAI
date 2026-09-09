@@ -32,10 +32,7 @@ export function Legend() {
           </ul>
         </div>
       ))}
-      <p className="note">
-        position on each disc is a PCA of the matched descriptions' meaning: same direction, same theme,
-        on every layer. it is the geometry of the descriptions, not of the model's weights.
-      </p>
+      <p className="note">position is a PCA of what the descriptions mean, not of the model's weights.</p>
     </div>
   );
 }

@@ -67,8 +67,8 @@ export function LayerPlot({ model, layer }: { model: ModelId; layer: number }) {
           </circle>
         ))}
       </svg>
-      <figcaption>
-        {points.length} matched · pc1 across, pc2 up · centre is the average matched concept
+      <figcaption title="the centre is the average matched concept, so distance from it is how far this feature's meaning sits from the middle of what the query found">
+        pc1 across · pc2 up · centre = average match
       </figcaption>
     </figure>
   );

@@ -46,7 +46,6 @@ export function ViewBar() {
         <button type="button" className={drag === "pan" ? "on" : ""} onClick={() => setDrag("pan")}>
           move
         </button>
-        <span className="vb-hint">scroll to zoom · click a layer to open it</span>
         <button
           type="button"
           className={`qmark${open ? " on" : ""}`}

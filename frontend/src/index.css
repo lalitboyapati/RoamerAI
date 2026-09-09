@@ -310,7 +310,7 @@ header {
   top: 50%;
   transform: translateY(-50%);
   width: min(330px, 30vw);
-  max-height: 66vh;
+  max-height: 54vh;
   overflow-y: auto;
   scrollbar-width: none;
   background: rgba(0, 0, 0, 0.88);
@@ -517,13 +517,6 @@ figcaption { margin-top: 2px; text-transform: none; letter-spacing: 0.02em; line
 .viewbar button:hover { color: var(--text); }
 .viewbar button.on { color: var(--text); }
 .viewbar .sep { color: var(--structure); }
-.vb-hint {
-  margin-left: 12px;
-  font-size: 10px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--structure);
-}
 .viewbar .qmark {
   margin-left: 4px;
   width: 17px; height: 17px;
@@ -564,3 +557,16 @@ figcaption { margin-top: 2px; text-transform: none; letter-spacing: 0.02em; line
 .focus-btn + .focus-btn { margin-left: 0; }
 /* the hover readout floats over the scene rather than widening the tick row */
 .tick-count { position: absolute; left: 52px; white-space: nowrap; }
+
+/* the layer list stops at six; the rest is one click away */
+.layerpanel .more {
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--blue);
+  border-bottom: 1px solid transparent;
+}
+.layerpanel .more:hover { color: var(--yellow); border-bottom-color: var(--yellow); }
+
+/* compare view doubles the cluster list, so the corner scrolls instead of climbing */
+.bottom-left { max-height: 42vh; overflow-y: auto; scrollbar-width: none; }
+.bottom-left::-webkit-scrollbar { display: none; }
