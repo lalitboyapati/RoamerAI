@@ -190,6 +190,8 @@ function Signal({ nLayers }: { nLayers: number }) {
 }
 
 interface ArchitectureProps {
+  /** how many layers this model really has, when fewer are being drawn */
+  totalLayers?: number;
   nLayers: number;
   xOffset: number;
   label: string;
@@ -201,6 +203,7 @@ interface ArchitectureProps {
 
 export function Architecture({
   nLayers,
+  totalLayers,
   xOffset,
   label,
   isolated,
@@ -213,6 +216,9 @@ export function Architecture({
   const top = (nLayers - 1) * LAYER_GAP;
   const active = isolated ?? hoveredLayer;
   const compare = useStore((s) => s.view) === "compare";
+  // while the stack is still being drawn there is barely a layer to label, and
+  // five pieces of small grey text pile onto one ring
+  const building = useStore((s) => s.load.phase) !== "ready";
 
   return (
     <group position={[xOffset, 0, 0]}>
@@ -261,7 +267,7 @@ export function Architecture({
           ten pieces of small grey text over two point clouds — so there the
           model keeps its name and gives up the rest. The schematic inset in the
           corner still explains a layer. */}
-      {!compare && (
+      {!compare && !building && (
         <>
           <Html zIndexRange={[10, 0]} position={[-BRANCH_X - 0.5, 0.24 * LAYER_GAP, 0]} style={{ pointerEvents: "none" }}>
             <div className="scene-label right">attention</div>
@@ -278,7 +284,7 @@ export function Architecture({
         </>
       )}
       <Html zIndexRange={[10, 0]} position={[0, top + LAYER_GAP * 2.1, 0]} style={{ pointerEvents: "none" }}>
-        <div className="scene-label centre">{label} · {nLayers} layers</div>
+        <div className="scene-label centre">{label} · {totalLayers ?? nLayers} layers</div>
       </Html>
     </group>
   );

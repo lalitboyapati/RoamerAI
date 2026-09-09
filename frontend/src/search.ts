@@ -43,10 +43,10 @@ export function startSearch() {
   worker = new Worker(new URL("./search.worker.ts", import.meta.url), { type: "module" });
   worker.onmessage = (e: MessageEvent<WorkerOut>) => {
     const m = e.data;
-    if (m.type === "progress") setLoad({ phase: m.phase, loaded: m.loaded, total: m.total });
-    else if (m.type === "phase") setLoad({ phase: m.phase, loaded: 0, total: 0 });
+    if (m.type === "progress") setLoad({ ...load, phase: m.phase, loaded: m.loaded, total: m.total });
+    else if (m.type === "phase") setLoad({ ...load, phase: m.phase, loaded: 0, total: 0, restored: m.restored ?? load.restored });
     else if (m.type === "ready") {
-      setLoad({ phase: "ready", loaded: 1, total: 1 });
+      setLoad({ phase: "ready", loaded: 1, total: 1, restored: m.restored, persisted: m.persisted });
       readyResolve?.();
     } else if (m.type === "result") {
       pending.get(m.id)?.ok(m.results, m.ms);
@@ -99,3 +99,16 @@ export function toFeatures(r: ModelHits, model: ModelId, sourceSet: string): Fea
 
 export const toEmbeddings = (r: ModelHits): (number[] | undefined)[] => r.embeddings;
 export const perLayerCounts = (r: ModelHits): Record<number, number> => r.perLayer;
+
+/**
+ * One number for the whole first run, weighted by what the pieces actually
+ * weigh over the wire: the index is 19.1 MB of it, the encoder and its runtime
+ * 21 MB. Used to draw the model as it arrives, so the wait is the thing being
+ * waited for.
+ */
+const INDEX_SHARE = 0.48;
+export function progressFraction(s: LoadState): number {
+  if (s.phase === "ready") return 1;
+  const within = s.total > 0 ? Math.min(1, s.loaded / s.total) : 0;
+  return s.phase === "index" ? within * INDEX_SHARE : INDEX_SHARE + within * (1 - INDEX_SHARE);
+}

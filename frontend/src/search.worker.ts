@@ -33,7 +33,11 @@ const FLOOR = 0.3;
 /** The scene draws one sphere per hit; this is the budget that holds 55 fps. */
 const MAX_HITS = 250;
 
+/** Bumped when the files change shape, so an old copy is never read as a new one. */
+const CACHE = "romirai-idx-v1";
+
 let meta: IndexMeta;
+let restored = false;
 let docs: Record<ModelId, [number, number, string][]>;
 let vecs: Int8Array;
 let extract: FeatureExtractionPipeline;
@@ -41,10 +45,8 @@ let ready = false;
 
 const post = (m: WorkerOut) => (self as unknown as Worker).postMessage(m);
 
-/** fetch with progress, so the first visit can show something true */
-async function load(url: string, phase: "index" | "model"): Promise<ArrayBuffer> {
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`${url} — ${res.status}`);
+/** Read a response body, reporting real bytes as they land. */
+async function drain(res: Response, phase: "index" | "model"): Promise<ArrayBuffer> {
   const total = Number(res.headers.get("content-length")) || 0;
   if (!res.body || !total) return res.arrayBuffer();
   const chunks: Uint8Array[] = [];
@@ -66,7 +68,52 @@ async function load(url: string, phase: "index" | "model"): Promise<ArrayBuffer>
   return out.buffer;
 }
 
+/**
+ * Fetch once, keep it.
+ *
+ * The index goes into the Cache API rather than being left to the HTTP cache,
+ * for two reasons. The browser evicts the HTTP cache whenever it likes, which
+ * would make "downloaded once" a hope rather than a fact; and Chromium refuses
+ * to write a single entry larger than an eighth of that cache, which is exactly
+ * how a 22 MB matrix fails with ERR_CACHE_WRITE_FAILURE. `no-store` keeps it out
+ * of that path entirely.
+ */
+async function load(url: string, phase: "index" | "model"): Promise<ArrayBuffer> {
+  let cache: Cache | null = null;
+  try {
+    cache = await caches.open(CACHE);
+  } catch {
+    cache = null; // private windows and locked-down browsers have no Cache API
+  }
+
+  const hit = await cache?.match(url);
+  if (hit) {
+    restored = true;
+    // say so before the bar moves, so the screen never claims a download that
+    // is not happening
+    post({ type: "phase", phase, restored: true });
+    return drain(hit, phase);
+  }
+
+  const res = await fetch(url, { cache: "no-store" });
+  if (!res.ok) throw new Error(`${url} — ${res.status}`);
+  const buf = await drain(res, phase);
+  try {
+    await cache?.put(url, new Response(buf.slice(0), { headers: { "content-length": String(buf.byteLength) } }));
+  } catch {
+    // out of quota, or the browser said no; the app still works, it just pays again
+  }
+  return buf;
+}
+
 async function init() {
+  // Without this the browser may evict everything below under storage pressure,
+  // and a returning visitor silently pays the download again.
+  try {
+    await navigator.storage?.persist?.();
+  } catch {
+    /* not available; nothing to do about it */
+  }
   meta = await (await fetch("/idx/meta.json")).json();
   docs = JSON.parse(new TextDecoder().decode(await load("/idx/docs.json", "index")));
   vecs = new Int8Array(await load("/idx/vecs.i8", "index"));
@@ -83,7 +130,13 @@ async function init() {
   // one warm pass so the first real query is not also the first inference
   await embed("warm up");
   ready = true;
-  post({ type: "ready" });
+  let persisted = false;
+  try {
+    persisted = (await navigator.storage?.persisted?.()) ?? false;
+  } catch {
+    /* ignore */
+  }
+  post({ type: "ready", restored, persisted });
 }
 
 async function embed(text: string): Promise<Float32Array> {

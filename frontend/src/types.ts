@@ -134,8 +134,8 @@ export type WorkerIn =
 
 export type WorkerOut =
   | { type: "progress"; phase: "index" | "model"; loaded: number; total: number }
-  | { type: "phase"; phase: "index" | "model" }
-  | { type: "ready" }
+  | { type: "phase"; phase: "index" | "model"; restored?: boolean }
+  | { type: "ready"; restored: boolean; persisted: boolean }
   | { type: "result"; id: number; results: Record<string, ModelHits>; ms: number }
   | { type: "error"; id?: number; message: string };
 
@@ -144,4 +144,8 @@ export interface LoadState {
   phase: "index" | "model" | "ready";
   loaded: number;
   total: number;
+  /** came back from this browser's store rather than the network */
+  restored?: boolean;
+  /** the browser promised not to evict it */
+  persisted?: boolean;
 }

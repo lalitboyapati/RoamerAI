@@ -243,6 +243,8 @@ function Matched({ model, features, xOffset, generation, isolated, hovered, onHo
 }
 
 export interface StackProps extends MatchedProps {
+  /** the model's real layer count, when the scene is still drawing up to it */
+  totalLayers?: number;
   /** the other model's analogues of the picked feature, drawn on this stack in gold */
   counterparts: Feature[];
   display: string;
@@ -254,6 +256,7 @@ export interface StackProps extends MatchedProps {
 export function Stack({
   counterparts,
   display,
+  totalLayers,
   hoveredLayer,
   onHoverLayer,
   onPickLayer,
@@ -265,6 +268,7 @@ export function Stack({
       {shape === "stack" ? (
         <Architecture
           nLayers={nLayers}
+          totalLayers={totalLayers}
           xOffset={rest.xOffset}
           label={display}
           isolated={rest.isolated}

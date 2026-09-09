@@ -6,6 +6,7 @@ import { C } from "../palette";
 import { LAYER_GAP, smooth } from "../coverage";
 import { GLOBE_RADIUS, featurePosition, globeLatitude } from "../geometry";
 import { modelsFor, useStore } from "../store";
+import { progressFraction } from "../search";
 import { Stack } from "./Stack";
 import type { ModelId, Shape, View } from "../types";
 
@@ -178,6 +179,11 @@ export function Scene() {
   }, [resetCamera]);
 
   const models = modelsFor(view);
+  // While the index is arriving the stack is drawn as far as the bytes have
+  // got: the thing being waited for assembles itself, one layer at a time,
+  // instead of a spinner standing in front of an empty screen.
+  const reveal = progressFraction(useStore((s) => s.load));
+  const drawnLayers = (n: number) => (reveal >= 1 ? n : Math.max(1, Math.ceil(reveal * n)));
   const anyResults = models.some((m) => (results[m]?.features.length ?? 0) > 0);
   const nLayers = manifest ? Math.max(...models.map((m) => manifest.models[m].n_layers)) : 26;
   const height = nLayers * LAYER_GAP;
@@ -235,7 +241,8 @@ export function Scene() {
           <Stack
             key={m}
             model={m}
-            nLayers={manifest.models[m].n_layers}
+            nLayers={drawnLayers(manifest.models[m].n_layers)}
+            totalLayers={manifest.models[m].n_layers}
             display={manifest.models[m].display}
             xOffset={offsetFor(view, m, shape)}
             shape={shape}
