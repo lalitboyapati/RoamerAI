@@ -213,7 +213,7 @@ header {
 .right-rail {
   position: absolute;
   right: 30px;
-  top: 96px;
+  top: 150px;
   bottom: 24px;
   width: min(360px, 32vw);
   display: flex;
@@ -225,7 +225,7 @@ header {
 }
 .right-rail::-webkit-scrollbar { display: none; }
 
-.rail-block { display: flex; flex-direction: column; gap: 12px; }
+.rail-block { display: flex; flex-direction: column; gap: 12px; flex: 0 0 auto; }
 
 .readout { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; }
 .score {
@@ -269,7 +269,7 @@ header {
 .bands { display: flex; flex-direction: column; gap: 7px; }
 .band {
   display: grid;
-  grid-template-columns: 92px 1fr;
+  grid-template-columns: 106px 1fr;
   grid-template-areas: "name meter" "role role";
   gap: 3px 10px;
   align-items: center;

@@ -39,10 +39,13 @@ function Camera({
   height,
   halfWidth,
   focusY,
+  nonce,
 }: {
   height: number;
   halfWidth: number;
   focusY: number | null;
+  /** changing this re-runs the ease, which is how "reset view" works */
+  nonce: number;
 }) {
   const { camera, controls } = useThree();
   const fromPos = useRef(new THREE.Vector3());
@@ -67,7 +70,7 @@ function Camera({
       new THREE.Vector3(0, height * 0.5, dist),
       new THREE.Vector3(0, height * 0.5, 0),
     ];
-  }, [focusY, height, halfWidth, camera]);
+  }, [focusY, height, halfWidth, camera, nonce]);
 
   useEffect(() => {
     const c = controls as { target: THREE.Vector3 } | null;
@@ -128,6 +131,16 @@ export function Scene() {
   const setHovered = useStore((s) => s.setHovered);
   const setHoveredLayer = useStore((s) => s.setHoveredLayer);
   const toggleIsolated = useStore((s) => s.toggleIsolated);
+  const resetCamera = useStore((s) => s.resetCamera);
+  const frameNonce = useStore((s) => s.frameNonce);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "r" && !(e.target instanceof HTMLInputElement)) resetCamera();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [resetCamera]);
 
   const models = modelsFor(view);
   const anyResults = models.some((m) => (results[m]?.features.length ?? 0) > 0);
@@ -137,21 +150,24 @@ export function Scene() {
 
   return (
     <Canvas
-      camera={{ position: [0, 13, 34], fov: 45 }}
+      camera={{ position: [0, 17.5, 54], fov: 45 }}  // close to the framing shot, so frame one is already right
       dpr={[1, 1.75]}
       onCreated={({ scene }) => {
         scene.background = new THREE.Color(C.VOID);
       }}
-      onPointerMissed={() => {
+      onPointerMissed={(e) => {
         setHovered(null);
-        toggleIsolated(null);
+        if (e.type === "dblclick") resetCamera();
+        else toggleIsolated(null);
       }}
+      onDoubleClick={() => resetCamera()}
     >
       <OrbitControls makeDefault enableDamping dampingFactor={0.06} minDistance={4} maxDistance={90} />
       <Camera
         height={height}
         halfWidth={halfWidth}
         focusY={isolated === null ? null : isolated * LAYER_GAP}
+        nonce={frameNonce}
       />
       <IdleSpin active={!anyResults && isolated === null} />
 

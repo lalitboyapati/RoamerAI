@@ -140,7 +140,7 @@ export function Hud() {
           ))}
       </div>
 
-      <p className="hint">drag to orbit · scroll to zoom · click a layer to open it</p>
+      <p className="hint">drag to orbit · scroll to zoom · click a layer to open it · double-click or R to reset the view</p>
     </div>
   );
 }

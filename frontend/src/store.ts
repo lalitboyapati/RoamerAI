@@ -19,6 +19,8 @@ interface State {
   hoveredLayer: number | null;
   /** bumped on every completed search so the scene can re-run its ignition */
   generation: number;
+  /** bumped to ease the camera back to the framing shot */
+  frameNonce: number;
 
   loadManifest: () => Promise<void>;
   setQuery: (q: string) => void;
@@ -29,6 +31,7 @@ interface State {
   setHovered: (id: string | null) => void;
   setHoveredLayer: (layer: number | null) => void;
   toggleIsolated: (layer: number | null) => void;
+  resetCamera: () => void;
   run: () => Promise<void>;
 }
 
@@ -51,6 +54,7 @@ export const useStore = create<State>((set, get) => ({
   isolated: null,
   hoveredLayer: null,
   generation: 0,
+  frameNonce: 0,
 
   loadManifest: async () => {
     try {
@@ -94,6 +98,8 @@ export const useStore = create<State>((set, get) => ({
 
   toggleIsolated: (layer) =>
     set((s) => ({ isolated: layer === null || s.isolated === layer ? null : layer })),
+
+  resetCamera: () => set((s) => ({ isolated: null, frameNonce: s.frameNonce + 1 })),
 
   run: async () => {
     const { q, mode, view, manifest } = get();
