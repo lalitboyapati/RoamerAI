@@ -13,7 +13,8 @@ const MB = (n: number) => `${(n / 1e6).toFixed(1)} mb`;
 
 export function Loader() {
   const load = useStore((s) => s.load);
-  const manifest = useStore((s) => s.manifest);
+  const catalog = useStore((s) => s.catalog);
+  const selected = useStore((s) => s.selected);
   if (load.phase === "ready") return null;
 
   const pct = load.total > 0 ? Math.min(1, load.loaded / load.total) : 0;
@@ -28,10 +29,8 @@ export function Loader() {
       ? "downloading the feature atlas"
       : "downloading the sentence encoder";
 
-  const layers = manifest
-    ? Object.values(manifest.models)
-        .map((m) => m.n_layers)
-        .join(" and ")
+  const layers = catalog && selected.length
+    ? selected.map((m) => catalog.models[m].nLayers).join(" and ")
     : "26 and 32";
 
   return (

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { modelsFor, useStore } from "../store";
+import { useStore } from "../store";
 
 const SHORTCUTS: [string, string][] = [
   ["/", "search"],
@@ -28,12 +28,12 @@ export function ViewBar() {
   const setShape = useStore((s) => s.setShape);
   const replayGuide = useStore((s) => s.replayGuide);
   const results = useStore((s) => s.results);
-  const view = useStore((s) => s.view);
+  const selected = useStore((s) => s.selected);
   const [open, setOpen] = useState(false);
 
   // the walkthrough annotates a resolved result; offering it over an empty
   // screen would point four notes at nothing
-  const lit = modelsFor(view).some((m) => (results[m]?.features.length ?? 0) > 0);
+  const lit = selected.some((m) => (results[m]?.features.length ?? 0) > 0);
 
   return (
     <div className="viewbar">

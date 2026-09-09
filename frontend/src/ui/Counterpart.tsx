@@ -8,7 +8,7 @@ import { useStore } from "../store";
 export function CounterpartPanel() {
   const counterpart = useStore((s) => s.counterpart);
   const loading = useStore((s) => s.counterpartLoading);
-  const manifest = useStore((s) => s.manifest);
+  const catalog = useStore((s) => s.catalog);
   const clear = useStore((s) => s.clearCounterpart);
   const setHovered = useStore((s) => s.setHovered);
   const toggleSources = useStore((s) => s.toggleSources);
@@ -20,15 +20,15 @@ export function CounterpartPanel() {
       </div>
     );
   }
-  if (!counterpart || !manifest) return null;
+  if (!counterpart || !catalog) return null;
 
   const { source, target, features } = counterpart;
-  const srcName = manifest.models[source.model].display;
-  const dstName = manifest.models[target].display;
+  const srcName = catalog.models[source.model].display;
+  const dstName = catalog.models[target].display;
   const layers = features.map((f) => f.layer);
   const lo = layers.length ? Math.min(...layers) : null;
   const hi = layers.length ? Math.max(...layers) : null;
-  const srcDepth = source.layer / (manifest.models[source.model].n_layers - 1);
+  const srcDepth = source.layer / (catalog.models[source.model].nLayers - 1);
   const shown = features.slice(0, 5);
 
   return (

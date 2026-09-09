@@ -38,9 +38,10 @@ function useTween(value: number, ms = 400): number {
 
 export function Readout({ model, display }: { model: ModelId; display: string }) {
   const result = useStore((s) => s.results[model]);
-  const manifest = useStore((s) => s.manifest);
+  const catalog = useStore((s) => s.catalog);
   const score = useTween(result?.score ?? 0);
-  const nLayers = manifest?.models[model].n_layers ?? 0;
+  const nLayers = catalog?.models[model].nLayers ?? 0;
+  const indexed = catalog?.models[model].count ?? 0;
 
   if (!result) return null;
 
@@ -49,10 +50,13 @@ export function Readout({ model, display }: { model: ModelId; display: string })
       <span className="label">{display}</span>
       <span className="score">{score}</span>
       <span className="label">coverage</span>
+      {/* the raw count is not comparable between models of different size;
+          density and depth are, so they lead */}
       <span className="stats">
-        {result
-          ? `${result.found.toLocaleString()} features · ${result.layersHit}/${nLayers} layers · ${result.ms} ms`
-          : " "}
+        {result.density.toFixed(1)} per 1k · {Math.round(result.depth * 100)}% deep
+      </span>
+      <span className="stats quiet">
+        {result.found.toLocaleString()} of {indexed.toLocaleString()} · {result.layersHit}/{nLayers} layers · {result.ms} ms
       </span>
     </div>
   );

@@ -1,10 +1,13 @@
 import { useEffect, useRef } from "react";
-import { GUIDE_ANCHORS, modelsFor, useStore } from "../store";
-import type { View } from "../types";
+import { GUIDE_ANCHORS, useStore } from "../store";
 import { Examples } from "./Examples";
 import { Guide } from "./Guide";
 import { Intro, IntroPrompt } from "./Intro";
 import { Loader } from "./Loader";
+import { ModelBar } from "./ModelBar";
+import { DepthProfile } from "./DepthProfile";
+import { Agreement } from "./Agreement";
+import { go } from "../route";
 import { Guidance } from "./Guidance";
 import { LayerBar } from "./LayerBar";
 import { LayerPanel } from "./LayerPanel";
@@ -16,49 +19,15 @@ import { CounterpartPanel } from "./Counterpart";
 import { Sources } from "./Sources";
 import { ViewBar } from "./ViewBar";
 
-const VIEWS: { id: View; label: string }[] = [
-  { id: "gemma-2-2b", label: "gemma" },
-  { id: "llama3.1-8b", label: "llama" },
-  { id: "compare", label: "compare" },
-];
-
-function Toggle<T extends string>({
-  options,
-  active,
-  onPick,
-  hint,
-}: {
-  options: { id: T; label: string }[];
-  active: T;
-  onPick: (id: T) => void;
-  hint: string;
-}) {
-  return (
-    <div className="toggle">
-      <span className="label">{hint}</span>
-      <span className="toggle-row">
-        {options.map((o, i) => (
-          <span key={o.id}>
-            {i > 0 && <span className="sep">·</span>}
-            <button type="button" className={o.id === active ? "on" : ""} onClick={() => onPick(o.id)}>
-              {o.label}
-            </button>
-          </span>
-        ))}
-      </span>
-    </div>
-  );
-}
 
 export function Hud() {
   const q = useStore((s) => s.q);
-  const view = useStore((s) => s.view);
+  const selected = useStore((s) => s.selected);
   const loading = useStore((s) => s.loading);
   const error = useStore((s) => s.error);
   const results = useStore((s) => s.results);
-  const manifest = useStore((s) => s.manifest);
+  const catalog = useStore((s) => s.catalog);
   const setQuery = useStore((s) => s.setQuery);
-  const setView = useStore((s) => s.setView);
   const focus = useStore((s) => s.focus);
   const toggleFocus = useStore((s) => s.toggleFocus);
   const setDrag = useStore((s) => s.setDrag);
@@ -95,9 +64,9 @@ export function Hud() {
     return () => window.removeEventListener("keydown", onKey);
   }, [toggleFocus, toggleSources, setDrag]);
 
-  const models = modelsFor(view);
+  const models = selected;
   const searched = q.trim().length > 0;
-  const empty = searched && !loading && !error && models.every((m) => (results[m]?.found ?? 0) === 0);
+  const empty = searched && !loading && !error && models.every((m: string) => (results[m]?.found ?? 0) === 0);
 
   return (
     <div
@@ -111,6 +80,9 @@ export function Hud() {
         <span className="tagline">
           does this model know your field — and where would you fine-tune it?
         </span>
+        <button type="button" className="focus-btn" onClick={() => go("profile")}>
+          profile a domain
+        </button>
         <button type="button" className="focus-btn" onClick={toggleSources} title="S">
           {sourcesOpen ? "hide sources" : "sources"}
         </button>
@@ -131,7 +103,7 @@ export function Hud() {
             autoFocus
           />
         </label>
-        <Toggle options={VIEWS} active={view} onPick={setView} hint="model" />
+        <ModelBar />
       </div>
 
       <Examples />
@@ -154,12 +126,18 @@ export function Hud() {
 
       <div className="right-rail">
         <Loader />
+        {models.length > 1 && ready && (
+          <div className="rail-block">
+            <DepthProfile models={models} />
+            <Agreement models={models} />
+          </div>
+        )}
         {!searched && !error && ready && <Intro />}
-        {manifest &&
-          models.map((m) => (
+        {catalog &&
+          models.map((m: string) => (
             <div className="rail-block" key={m}>
-              <Readout model={m} display={manifest.models[m].display} />
-              <LayerBar model={m} nLayers={manifest.models[m].n_layers} />
+              <Readout model={m} display={catalog.models[m].display} />
+              <LayerBar model={m} nLayers={catalog.models[m].nLayers} />
               <Guidance model={m} />
               <Legend model={m} />
             </div>

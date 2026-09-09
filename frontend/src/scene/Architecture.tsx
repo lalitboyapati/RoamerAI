@@ -215,7 +215,8 @@ export function Architecture({
   const highlight = useMemo(() => buildLayerHighlight(C.YELLOW), []);
   const top = (nLayers - 1) * LAYER_GAP;
   const active = isolated ?? hoveredLayer;
-  const compare = useStore((s) => s.view) === "compare";
+  const nModels = useStore((s) => s.selected).length;
+  const compare = nModels > 1;
   // while the stack is still being drawn there is barely a layer to label, and
   // five pieces of small grey text pile onto one ring
   const building = useStore((s) => s.load.phase) !== "ready";
@@ -284,7 +285,7 @@ export function Architecture({
         </>
       )}
       <Html zIndexRange={[10, 0]} position={[0, top + LAYER_GAP * 2.1, 0]} style={{ pointerEvents: "none" }}>
-        <div className="scene-label centre">{label} · {totalLayers ?? nLayers} layers</div>
+        <div className="scene-label centre">{nModels > 2 ? label : `${label} · ${totalLayers ?? nLayers} layers`}</div>
       </Html>
     </group>
   );

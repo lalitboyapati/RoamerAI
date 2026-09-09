@@ -1,4 +1,4 @@
-import { modelsFor, useStore } from "../store";
+import { useStore } from "../store";
 import { CLUSTER_COLOURS } from "../geometry";
 import type { Feature, ModelId } from "../types";
 
@@ -33,14 +33,14 @@ export function Sources() {
   const open = useStore((s) => s.sourcesOpen);
   const toggle = useStore((s) => s.toggleSources);
   const results = useStore((s) => s.results);
-  const view = useStore((s) => s.view);
-  const manifest = useStore((s) => s.manifest);
+  const selected = useStore((s) => s.selected);
+  const catalog = useStore((s) => s.catalog);
   const isolated = useStore((s) => s.isolated);
   const counterpart = useStore((s) => s.counterpart);
 
-  if (!open || !manifest) return null;
+  if (!open || !catalog) return null;
 
-  const models = modelsFor(view);
+  const models = selected;
   const section = (m: ModelId) => {
     const all = results[m]?.features ?? [];
     const rows = (isolated === null ? all : all.filter((f) => f.layer === isolated)).slice().sort(byLayerThenRelevance);
@@ -69,7 +69,7 @@ export function Sources() {
 
       {sections.map((s) => (
         <section key={s.model}>
-          <p className="src-model">{manifest.models[s.model].display}</p>
+          <p className="src-model">{catalog.models[s.model].display}</p>
           <ul>
             {s.rows.map((f) => (
               <Row key={f.id} f={f} />
@@ -80,7 +80,7 @@ export function Sources() {
 
       {cpRows.length > 0 && counterpart && (
         <section>
-          <p className="src-model gold">counterparts in {manifest.models[counterpart.target].display}</p>
+          <p className="src-model gold">counterparts in {catalog.models[counterpart.target].display}</p>
           <ul>
             {cpRows.map((f) => (
               <Row key={f.id} f={f} />

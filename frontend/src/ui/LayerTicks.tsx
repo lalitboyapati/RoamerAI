@@ -1,22 +1,21 @@
-import { modelsFor, useStore } from "../store";
+import { useStore } from "../store";
 
 /**
  * The layer control is the tick column itself — the labels are the slider.
  * Hovering lights that layer in the 3D stack; clicking flies to it.
  */
 export function LayerTicks() {
-  const manifest = useStore((s) => s.manifest);
-  const view = useStore((s) => s.view);
+  const catalog = useStore((s) => s.catalog);
+  const selected = useStore((s) => s.selected);
   const results = useStore((s) => s.results);
   const isolated = useStore((s) => s.isolated);
   const hoveredLayer = useStore((s) => s.hoveredLayer);
   const setHoveredLayer = useStore((s) => s.setHoveredLayer);
   const toggleIsolated = useStore((s) => s.toggleIsolated);
 
-  if (!manifest) return null;
-  const models = modelsFor(view);
-  const nLayers = Math.max(...models.map((m) => manifest.models[m].n_layers));
-  const primary = results[models[0]];
+  if (!catalog || !selected.length) return null;
+  const nLayers = Math.max(...selected.map((m) => catalog.models[m].nLayers));
+  const primary = results[selected[0]];
 
   return (
     <nav className="ticks" aria-label="layers">

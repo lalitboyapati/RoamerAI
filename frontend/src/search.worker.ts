@@ -1,19 +1,18 @@
 /// <reference lib="webworker" />
 import { env, pipeline, type FeatureExtractionPipeline } from "@huggingface/transformers";
-import type { IndexMeta, ModelId, WorkerIn, WorkerOut } from "./types";
+import type { Catalog, ModelHits, ModelId, WorkerIn, WorkerOut } from "./types";
 
 /**
  * The search engine, in a worker.
  *
- * There is no server. The corpus is 59,168 short descriptions that never
- * change, so the whole index ships as static files next to the page: the
- * descriptions as JSON, the vectors as an int8 matrix, and the sentence
- * encoder as ONNX. Everything below runs off the main thread because the
- * scene has a 55 fps floor and a 22-million-multiply scan would blow it.
+ * There is no server. Each model's descriptions and int8 vectors are static
+ * files under /idx/<model>/, loaded only when that model is actually being
+ * compared, so picking two of three costs two of three. Scoring runs off the
+ * main thread because the scene has a 55 fps floor and a full scan is tens of
+ * millions of multiplies.
  *
- * Nothing here is fetched from a third party at runtime — the model and the
- * WebAssembly backend are served from this origin, so the page keeps working
- * whatever happens to anyone else's CDN.
+ * Nothing is fetched from a third party at runtime — the encoder and the
+ * WebAssembly backend are served from this origin.
  */
 env.allowRemoteModels = false;
 env.allowLocalModels = true;
@@ -25,23 +24,29 @@ env.localModelPath = "/models/";
 env.backends.onnx.wasm!.wasmPaths = "/ort/";
 env.backends.onnx.wasm!.numThreads = 1;
 
-const MODEL = "Xenova/all-MiniLM-L6-v2";
-/** Cosine floor for "this feature responds to the concept" — the cutoff the
- *  Typesense preset used (distance_threshold 0.70), kept so verdicts move for
- *  the same reasons they did before. */
+const ENCODER = "Xenova/all-MiniLM-L6-v2";
+/** Cosine floor for "this feature responds to the concept". */
 const FLOOR = 0.3;
 /** The scene draws one sphere per hit; this is the budget that holds 55 fps. */
 const MAX_HITS = 250;
-
 /** Bumped when the files change shape, so an old copy is never read as a new one. */
-const CACHE = "romirai-idx-v1";
+const CACHE = "romirai-idx-v2";
 
-let meta: IndexMeta;
-let restored = false;
-let docs: Record<ModelId, [number, number, string][]>;
-let vecs: Int8Array;
+interface Loaded {
+  rows: [number, number, string][];
+  vecs: Int8Array;
+  scale: number;
+  nLayers: number;
+  count: number;
+}
+
+let catalog: Catalog;
 let extract: FeatureExtractionPipeline;
+const loaded = new Map<ModelId, Loaded>();
+let restored = false;
 let ready = false;
+/** self.onmessage is re-entered per message, so everything queues behind this. */
+let booting: Promise<void> | null = null;
 
 const post = (m: WorkerOut) => (self as unknown as Worker).postMessage(m);
 
@@ -50,20 +55,20 @@ async function drain(res: Response, phase: "index" | "model"): Promise<ArrayBuff
   const total = Number(res.headers.get("content-length")) || 0;
   if (!res.body || !total) return res.arrayBuffer();
   const chunks: Uint8Array[] = [];
-  let loaded = 0;
+  let at = 0;
   const reader = res.body.getReader();
   for (;;) {
     const { done, value } = await reader.read();
     if (done) break;
     chunks.push(value);
-    loaded += value.length;
-    post({ type: "progress", phase, loaded, total });
+    at += value.length;
+    post({ type: "progress", phase, loaded: at, total });
   }
-  const out = new Uint8Array(loaded);
-  let at = 0;
+  const out = new Uint8Array(at);
+  let o = 0;
   for (const c of chunks) {
-    out.set(c, at);
-    at += c.length;
+    out.set(c, o);
+    o += c.length;
   }
   return out.buffer;
 }
@@ -72,11 +77,9 @@ async function drain(res: Response, phase: "index" | "model"): Promise<ArrayBuff
  * Fetch once, keep it.
  *
  * The index goes into the Cache API rather than being left to the HTTP cache,
- * for two reasons. The browser evicts the HTTP cache whenever it likes, which
- * would make "downloaded once" a hope rather than a fact; and Chromium refuses
- * to write a single entry larger than an eighth of that cache, which is exactly
- * how a 22 MB matrix fails with ERR_CACHE_WRITE_FAILURE. `no-store` keeps it out
- * of that path entirely.
+ * which the browser evicts whenever it likes and which refuses to write a single
+ * entry larger than an eighth of itself — exactly how a 12 MB matrix fails with
+ * ERR_CACHE_WRITE_FAILURE. `no-store` keeps it out of that path entirely.
  */
 async function load(url: string, phase: "index" | "model"): Promise<ArrayBuffer> {
   let cache: Cache | null = null;
@@ -85,16 +88,12 @@ async function load(url: string, phase: "index" | "model"): Promise<ArrayBuffer>
   } catch {
     cache = null; // private windows and locked-down browsers have no Cache API
   }
-
   const hit = await cache?.match(url);
   if (hit) {
     restored = true;
-    // say so before the bar moves, so the screen never claims a download that
-    // is not happening
     post({ type: "phase", phase, restored: true });
     return drain(hit, phase);
   }
-
   const res = await fetch(url, { cache: "no-store" });
   if (!res.ok) throw new Error(`${url} — ${res.status}`);
   const buf = await drain(res, phase);
@@ -106,7 +105,16 @@ async function load(url: string, phase: "index" | "model"): Promise<ArrayBuffer>
   return buf;
 }
 
-async function init() {
+async function loadModel(id: ModelId) {
+  if (loaded.has(id)) return;
+  const m = catalog.models[id];
+  if (!m) throw new Error(`unknown model ${id}`);
+  const rows = JSON.parse(new TextDecoder().decode(await load(`/idx/${id}/docs.json`, "index")));
+  const vecs = new Int8Array(await load(`/idx/${id}/vecs.i8`, "index"));
+  loaded.set(id, { rows, vecs, scale: m.scale, nLayers: m.nLayers, count: rows.length });
+}
+
+async function init(models: ModelId[]) {
   // Without this the browser may evict everything below under storage pressure,
   // and a returning visitor silently pays the download again.
   try {
@@ -114,11 +122,10 @@ async function init() {
   } catch {
     /* not available; nothing to do about it */
   }
-  meta = await (await fetch("/idx/meta.json")).json();
-  docs = JSON.parse(new TextDecoder().decode(await load("/idx/docs.json", "index")));
-  vecs = new Int8Array(await load("/idx/vecs.i8", "index"));
+  catalog = await (await fetch("/idx/catalog.json")).json();
+  for (const id of models) await loadModel(id);
   post({ type: "phase", phase: "model" });
-  extract = await pipeline("feature-extraction", MODEL, {
+  extract = await pipeline("feature-extraction", ENCODER, {
     dtype: "q8",
     device: "wasm",
     progress_callback: (p: { status?: string; loaded?: number; total?: number }) => {
@@ -144,33 +151,36 @@ async function embed(text: string): Promise<Float32Array> {
   return t.data as Float32Array;
 }
 
-interface Scored {
-  row: number;
-  score: number;
-}
-
-/** One pass over a model's slice: total above the floor, per-layer counts, top hits. */
-function scan(q: Float32Array, model: ModelId) {
-  const { offset, count } = meta.models[model];
-  const dims = meta.dims;
-  const scale = meta.scale;
-  const rows = docs[model];
+/**
+ * One pass over a model. Everything comparable between models is computed here:
+ * density normalises the count by how much of the model is indexed, depth and
+ * profile are expressed as a fraction of the network rather than a layer index,
+ * and the centroid lets two models be asked whether they mean the same thing.
+ */
+function scan(q: Float32Array, id: ModelId): ModelHits {
+  const { rows, vecs, scale, nLayers, count } = loaded.get(id)!;
+  const dims = catalog.dims;
 
   let found = 0;
+  let depthMass = 0;
   const perLayer: Record<number, number> = {};
-  // a small max-heap would be tidier; for 250 of 59k an insertion floor is faster
-  const top: Scored[] = [];
+  const centroid = new Float64Array(dims);
+  const top: { row: number; score: number }[] = [];
   let worst = -1;
 
   for (let i = 0; i < count; i++) {
-    const base = (offset + i) * dims;
+    const base = i * dims;
     let dot = 0;
     for (let d = 0; d < dims; d++) dot += q[d] * vecs[base + d];
     const score = dot * scale;
     if (score < FLOOR) continue;
+
     found++;
     const layer = rows[i][0];
     perLayer[layer] = (perLayer[layer] ?? 0) + 1;
+    depthMass += nLayers > 1 ? layer / (nLayers - 1) : 0;
+    for (let d = 0; d < dims; d++) centroid[d] += vecs[base + d] * scale;
+
     if (top.length < MAX_HITS) {
       top.push({ row: i, score });
       if (top.length === MAX_HITS) {
@@ -185,30 +195,67 @@ function scan(q: Float32Array, model: ModelId) {
   }
   top.sort((a, b) => b.score - a.score);
 
+  let norm = 0;
+  for (let d = 0; d < dims; d++) norm += centroid[d] * centroid[d];
+  norm = Math.sqrt(norm) || 1;
+  const unit = Array.from(centroid, (v) => v / norm);
+
+  // entropy over log(nLayers) so a 26-layer and a 32-layer model are on one scale
+  let h = 0;
+  for (const n of Object.values(perLayer)) {
+    const p = n / Math.max(1, found);
+    if (p > 0) h -= p * Math.log(p);
+  }
+  const spread = nLayers > 1 ? h / Math.log(nLayers) : 0;
+
+  const profile = Array.from({ length: nLayers }, (_, L) => ({
+    at: nLayers > 1 ? L / (nLayers - 1) : 0,
+    share: (perLayer[L] ?? 0) / Math.max(1, found),
+  }));
+
   const hits = top.map((t) => {
     const [layer, index, description] = rows[t.row];
     return { layer, index, description, score: t.score };
   });
   // the scene wants each hit's vector for its own PCA and clustering
   const embeddings = top.map((t) => {
-    const base = (offset + t.row) * dims;
+    const base = t.row * dims;
     const v = new Array<number>(dims);
     for (let d = 0; d < dims; d++) v[d] = vecs[base + d] * scale;
     return v;
   });
 
-  return { found, perLayer, hits, embeddings };
+  return {
+    found,
+    density: found / (count / 1000),
+    depth: found ? depthMass / found : 0,
+    spread,
+    perLayer,
+    profile,
+    centroid: unit,
+    hits,
+    embeddings,
+  };
 }
 
 self.onmessage = async (e: MessageEvent<WorkerIn>) => {
   const msg = e.data;
   try {
     if (msg.type === "init") {
-      await init();
+      booting ??= init(msg.models);
+      await booting;
+      return;
+    }
+    if (!booting) throw new Error("the index was asked to search before it was started");
+    await booting;
+    if (msg.type === "add") {
+      for (const id of msg.models) await loadModel(id);
+      post({ type: "loaded", models: [...loaded.keys()] });
       return;
     }
     if (!ready) throw new Error("index still loading");
     const t0 = performance.now();
+    for (const id of msg.models) await loadModel(id);
     const q = await embed(msg.q);
     const results = Object.fromEntries(msg.models.map((m) => [m, scan(q, m)]));
     post({ type: "result", id: msg.id, results, ms: Math.round(performance.now() - t0) });

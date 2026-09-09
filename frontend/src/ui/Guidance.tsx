@@ -8,13 +8,13 @@ import type { ModelId } from "../types";
  */
 export function Guidance({ model }: { model: ModelId }) {
   const result = useStore((s) => s.results[model]);
-  const manifest = useStore((s) => s.manifest);
+  const catalog = useStore((s) => s.catalog);
   const q = useStore((s) => s.q);
   const toggleIsolated = useStore((s) => s.toggleIsolated);
   const setHoveredLayer = useStore((s) => s.setHoveredLayer);
 
-  if (!manifest || !result) return null;
-  const d = diagnose(result, manifest.models[model], q);
+  if (!catalog || !result) return null;
+  const d = diagnose(result, catalog.models[model], q);
   if (!d) return null;
 
   return (

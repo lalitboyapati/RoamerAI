@@ -74,6 +74,9 @@ class ModelSpec:
 for spec in (
     ModelSpec("gemma-2-2b", "gemmascope-res-16k", 26, 16_384, "Gemma 2 2B"),
     ModelSpec("llama3.1-8b", "llamascope-res-32k", 32, 32_768, "Llama 3.1 8B"),
+    # Same architecture as llama3.1-8b, distilled for reasoning — so the pair is
+    # a controlled look at what that training did to concept representation.
+    ModelSpec("deepseek-r1-distill-llama-8b", "llamascope-slimpj-openr1-res-32k", 32, 32_768, "R1 Distill Llama 8B"),
 ):
     MODELS[spec.model_id] = spec
 

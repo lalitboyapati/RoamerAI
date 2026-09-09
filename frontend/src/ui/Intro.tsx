@@ -12,11 +12,11 @@ export function IntroPrompt() {
 }
 
 export function Intro() {
-  const manifest = useStore((s) => s.manifest);
-  const view = useStore((s) => s.view);
+  const catalog = useStore((s) => s.catalog);
+  const selected = useStore((s) => s.selected);
 
-  if (!manifest) return null;
-  const model = manifest.models[view === "compare" ? "gemma-2-2b" : view];
+  if (!catalog || !selected.length) return null;
+  const model = catalog.models[selected[0]];
 
   return (
     <div className="intro">

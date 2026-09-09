@@ -1,4 +1,4 @@
-import type { ManifestModel } from "./types";
+
 
 /** quintic smootherstep — the default easing (VISUAL-DIRECTION §4) */
 export const smooth = (t: number) => t * t * t * (t * (6 * t - 15) + 10);
@@ -24,15 +24,9 @@ export const D0 = 16.0;
  * Coverage 0-100 (docs/01-architecture.md §6): how many features fire for the
  * concept, normalised by model size, weighted by how many layers it spans.
  */
-export function coverageScore(
-  found: number,
-  layersHit: number,
-  model: ManifestModel
-): number {
-  const indexed = model.deep.total;
-  if (!indexed || !found) return 0;
-  const density = found / (indexed / 1000);
-  const spread = layersHit / model.n_layers;
+export function coverageScore(density: number, layersHit: number, nLayers: number): number {
+  if (!density) return 0;
+  const spread = layersHit / Math.max(1, nLayers);
   const saturation = Math.min(1, Math.sqrt(density / D0));
   return Math.round(100 * saturation * (0.5 + 0.5 * spread));
 }

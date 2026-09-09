@@ -1,4 +1,4 @@
-import { modelsFor, useStore } from "../store";
+import { useStore } from "../store";
 import { C } from "../palette";
 
 /**
@@ -8,17 +8,16 @@ import { C } from "../palette";
  * residual stream, and the ring of dots is that layer's feature space.
  */
 export function Schematic() {
-  const manifest = useStore((s) => s.manifest);
-  const view = useStore((s) => s.view);
+  const catalog = useStore((s) => s.catalog);
+  const selected = useStore((s) => s.selected);
   const isolated = useStore((s) => s.isolated);
   const results = useStore((s) => s.results);
 
   // the legend takes this corner as soon as there is something to explain
-  const lit = modelsFor(view).some((m) => (results[m]?.features.length ?? 0) > 0);
+  const lit = selected.some((m) => (results[m]?.features.length ?? 0) > 0);
   if (lit) return null;
 
-  const model = view === "compare" ? "gemma-2-2b" : view;
-  const nLayers = manifest?.models[model]?.n_layers ?? 26;
+  const nLayers = catalog?.models[selected[0]]?.nLayers ?? 26;
   const stroke = C.STRUCTURE;
 
   return (

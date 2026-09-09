@@ -1,21 +1,16 @@
-import type { Feature, LoadState, ModelHits, ModelId, WorkerOut } from "./types";
-
-export const otherModel = (m: ModelId): ModelId => (m === "gemma-2-2b" ? "llama3.1-8b" : "gemma-2-2b");
+import type { Catalog, Feature, LoadState, ModelHits, ModelId, WorkerOut } from "./types";
 
 /**
  * The client half of the search.
  *
  * There is no backend and no third-party call: the index and the sentence
  * encoder are static files on this origin, and the scoring happens in a worker
- * (see search.worker.ts). This module only owns the conversation with it.
- *
- * One consequence worth knowing: `found` is now the true number of features
- * above the similarity floor. The hosted index used to cap its candidate pool
- * at 600, which clipped the count the coverage score is built on.
+ * (see search.worker.ts). This module owns the conversation with it, and the
+ * handful of comparisons that only make sense between two models.
  */
 let worker: Worker | null = null;
 let seq = 0;
-const pending = new Map<number, { ok: (r: Record<string, ModelHits>, ms: number) => void; fail: (e: Error) => void }>();
+const pending = new Map<number, { ok: (r: Record<ModelId, ModelHits>, ms: number) => void; fail: (e: Error) => void }>();
 
 let load: LoadState = { phase: "index", loaded: 0, total: 0 };
 let readyResolve: (() => void) | null = null;
@@ -37,14 +32,28 @@ function setLoad(next: LoadState) {
   for (const fn of listeners) fn(next);
 }
 
-/** Start fetching the index and the encoder. Safe to call more than once. */
-export function startSearch() {
-  if (worker) return readyPromise;
+/** The model list, fetched before anything is downloaded so the picker can render. */
+let catalogPromise: Promise<Catalog> | null = null;
+export function getCatalog(): Promise<Catalog> {
+  catalogPromise ??= fetch("/idx/catalog.json").then((r) => {
+    if (!r.ok) throw new Error(`catalog.json — ${r.status}`);
+    return r.json() as Promise<Catalog>;
+  });
+  return catalogPromise;
+}
+
+/** Start fetching the encoder and the models named. Safe to call more than once. */
+export function startSearch(models: ModelId[]) {
+  if (worker) {
+    worker.postMessage({ type: "add", models });
+    return readyPromise;
+  }
   worker = new Worker(new URL("./search.worker.ts", import.meta.url), { type: "module" });
   worker.onmessage = (e: MessageEvent<WorkerOut>) => {
     const m = e.data;
     if (m.type === "progress") setLoad({ ...load, phase: m.phase, loaded: m.loaded, total: m.total });
-    else if (m.type === "phase") setLoad({ ...load, phase: m.phase, loaded: 0, total: 0, restored: m.restored ?? load.restored });
+    else if (m.type === "phase")
+      setLoad({ ...load, phase: m.phase, loaded: 0, total: 0, restored: m.restored ?? load.restored });
     else if (m.type === "ready") {
       setLoad({ phase: "ready", loaded: 1, total: 1, restored: m.restored, persisted: m.persisted });
       readyResolve?.();
@@ -60,27 +69,27 @@ export function startSearch() {
     }
   };
   worker.onerror = (e) => readyReject?.(new Error(e.message || "the search index failed to start"));
-  worker.postMessage({ type: "init" });
+  worker.postMessage({ type: "init", models });
   return readyPromise;
 }
 
 export async function searchModels(q: string, models: ModelId[]) {
-  await startSearch();
+  await startSearch(models);
   const id = ++seq;
-  return new Promise<{ results: Record<string, ModelHits>; ms: number }>((ok, fail) => {
+  return new Promise<{ results: Record<ModelId, ModelHits>; ms: number }>((ok, fail) => {
     pending.set(id, { ok: (results, ms) => ok({ results, ms }), fail });
     worker!.postMessage({ type: "search", id, q, models });
   });
 }
 
 /**
- * The nearest features in the *other* model to one feature, found by searching
- * that model with this feature's own description. Nothing crosses between
- * models except meaning.
+ * The nearest features in another model to one feature, found by searching that
+ * model with this feature's own description. Nothing crosses between models
+ * except meaning.
  */
-export async function searchCounterpart(source: Feature, target: ModelId): Promise<ModelHits> {
-  const { results } = await searchModels(source.description, [target]);
-  return results[target];
+export async function searchCounterpart(source: Feature, targets: ModelId[]) {
+  const { results } = await searchModels(source.description, targets);
+  return results;
 }
 
 export function toFeatures(r: ModelHits, model: ModelId, sourceSet: string): Feature[] {
@@ -91,20 +100,40 @@ export function toFeatures(r: ModelHits, model: ModelId, sourceSet: string): Fea
     index: h.index,
     description: h.description,
     // reconstructed rather than stored: 59k copies of a predictable string is
-    // 5 MB of payload for something the manifest already determines
+    // megabytes of payload for something the catalog already determines
     npUrl: `https://www.neuronpedia.org/${model}/${h.layer}-${sourceSet}/${h.index}`,
     rel: Math.max(0, Math.min(1, h.score)),
   }));
 }
 
 export const toEmbeddings = (r: ModelHits): (number[] | undefined)[] => r.embeddings;
-export const perLayerCounts = (r: ModelHits): Record<number, number> => r.perLayer;
+
+/* --------------------------------------------------------------- comparison */
+
+/**
+ * Do two models mean the same thing by a concept?
+ *
+ * Cosine between the mean embedding of everything each model matched. Concepts
+ * both models hold well sit around 0.98; where one is thin they diverge, which
+ * is the more interesting reading.
+ */
+export function centroidAgreement(a: ModelHits | undefined, b: ModelHits | undefined): number | null {
+  if (!a?.centroid.length || !b?.centroid.length || !a.found || !b.found) return null;
+  let dot = 0;
+  for (let i = 0; i < a.centroid.length; i++) dot += a.centroid[i] * b.centroid[i];
+  return Math.max(-1, Math.min(1, dot));
+}
+
+/**
+ * Below this many features, depth and spread are describing a handful of points
+ * and should be shown as provisional rather than as a measurement.
+ */
+export const THIN = 30;
 
 /**
  * One number for the whole first run, weighted by what the pieces actually
- * weigh over the wire: the index is 19.1 MB of it, the encoder and its runtime
- * 21 MB. Used to draw the model as it arrives, so the wait is the thing being
- * waited for.
+ * weigh over the wire. Used to draw the model as it arrives, so the wait is the
+ * thing being waited for.
  */
 const INDEX_SHARE = 0.48;
 export function progressFraction(s: LoadState): number {

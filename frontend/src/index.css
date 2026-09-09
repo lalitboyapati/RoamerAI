@@ -754,3 +754,201 @@ figcaption { margin-top: 2px; text-transform: none; letter-spacing: 0.02em; line
   }
   .too-small strong { font-weight: inherit; color: var(--text); letter-spacing: 0.16em; }
 }
+
+/* =========================================================== the way in
+   The landing page and the domain profile are reading surfaces, not the map.
+   Same void, same palette, same rule against boxes — the only thing that
+   changes is that the data is text rather than geometry. */
+
+.landing, .profile {
+  position: relative;
+  min-height: 100%;
+  padding: 22px 30px 60px;
+  overflow-y: auto;
+  max-height: 100vh;
+  scrollbar-width: thin;
+  scrollbar-color: var(--structure) transparent;
+}
+.landing header, .profile header { display: flex; align-items: baseline; gap: 14px; }
+.landing-loading { margin-top: 40px; font-size: 13px; color: var(--muted); }
+
+.landing-lede {
+  margin: 44px 0 40px;
+  max-width: 58ch;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--text);
+}
+
+.picker { list-style: none; margin: 12px 0 0; padding: 0; max-width: 640px; }
+.picker li + li { margin-top: 1px; }
+.pick {
+  display: grid;
+  grid-template-columns: 14px 1fr auto;
+  grid-template-areas: "mark name size" ". spec spec";
+  gap: 2px 12px;
+  width: 100%;
+  padding: 11px 4px;
+  text-align: left;
+  border-bottom: 1px solid var(--scaffold);
+  transition: border-color 150ms;
+}
+.pick:hover { border-bottom-color: var(--structure); }
+.pick-mark {
+  grid-area: mark;
+  width: 9px; height: 9px;
+  border: 1px solid var(--structure);
+  align-self: center;
+  transition: background 150ms, border-color 150ms;
+}
+.pick.on .pick-mark { background: var(--blue); border-color: var(--blue); }
+.pick-name { grid-area: name; font-size: 14.5px; color: var(--muted); transition: color 150ms; }
+.pick.on .pick-name { color: var(--text); }
+.pick-spec { grid-area: spec; font-size: 11.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.pick-size {
+  grid-area: size;
+  font-size: 11px;
+  color: var(--structure);
+  font-variant-numeric: tabular-nums;
+  align-self: center;
+}
+.pick.on .pick-size { color: var(--muted); }
+
+.landing-cost {
+  margin: 18px 0 0;
+  max-width: 58ch;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.landing-warn { color: var(--gold); }
+
+.landing-go { margin-top: 34px; display: flex; align-items: baseline; gap: 28px; flex-wrap: wrap; }
+.enter {
+  font-size: 15px;
+  color: var(--blue);
+  border-bottom: 1px solid var(--blue-deep);
+  padding-bottom: 2px;
+}
+.enter:hover { color: var(--yellow); border-bottom-color: var(--yellow); }
+.enter:disabled { color: var(--structure); border-bottom-color: var(--scaffold); cursor: default; }
+.enter.quiet { font-size: 13px; color: var(--muted); border-bottom-color: var(--structure); }
+.enter.quiet:hover { color: var(--text); border-bottom-color: var(--muted); }
+.landing-foot { margin-top: 46px; font-size: 11.5px; color: var(--structure); }
+
+/* ------------------------------------------------------------ the profile */
+.profile-input { margin-top: 32px; max-width: 640px; display: flex; flex-direction: column; gap: 10px; }
+.presets { display: flex; gap: 16px; flex-wrap: wrap; }
+.presets button { font-size: 12px; color: var(--muted); border-bottom: 1px solid transparent; }
+.presets button:hover { color: var(--blue); border-bottom-color: var(--blue-deep); }
+.profile textarea {
+  width: 100%;
+  font: inherit;
+  font-size: 13.5px;
+  line-height: 1.7;
+  color: var(--text);
+  background: none;
+  border: 0;
+  border-left: 1px solid var(--structure);
+  padding: 2px 0 2px 14px;
+  outline: none;
+  resize: vertical;
+  caret-color: var(--blue);
+}
+.profile textarea:focus { border-left-color: var(--blue); }
+.profile-run { display: flex; align-items: baseline; gap: 20px; flex-wrap: wrap; margin-top: 6px; }
+.profile-against { font-size: 11.5px; color: var(--muted); }
+
+.matrix {
+  margin-top: 44px;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+  min-width: min(100%, 720px);
+}
+.matrix th, .matrix td { padding: 7px 14px 7px 0; text-align: right; }
+.matrix thead th {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text);
+  font-weight: inherit;
+  border-bottom: 1px solid var(--structure);
+}
+.matrix thead .subhead th {
+  color: var(--muted);
+  letter-spacing: 0.04em;
+  text-transform: none;
+  font-size: 10.5px;
+  border-bottom-color: var(--scaffold);
+}
+.matrix .c-concept { text-align: left; color: var(--text); font-size: 13px; padding-right: 28px; }
+.matrix tbody tr { border-bottom: 1px solid rgba(34, 34, 34, 0.65); }
+.matrix tbody tr:hover { background: rgba(255, 255, 255, 0.02); }
+.matrix .num { font-size: 12.5px; color: var(--muted); }
+.matrix .num.strong { color: var(--text); font-size: 14px; }
+.matrix .num.thin { color: var(--structure); }
+.matrix .c-agree { color: var(--gold); }
+.c-agree-pair {
+  display: block;
+  margin-top: 3px;
+  font-size: 9.5px;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  color: var(--muted);
+}
+.matrix-note { margin: 14px 0 0; max-width: 78ch; font-size: 11.5px; line-height: 1.7; color: var(--muted); }
+.matrix-note em { font-style: normal; color: var(--text); }
+
+.verdict-block { margin-top: 40px; display: flex; flex-direction: column; gap: 14px; align-items: flex-start; }
+.verdict.strong { font-size: 16px; }
+.summary { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 7px; }
+.summary li {
+  display: grid;
+  grid-template-columns: 220px 52px 92px 1fr;
+  gap: 14px;
+  font-size: 12.5px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.summary .s-name { color: var(--text); }
+.summary .s-mean { color: var(--text); text-align: right; }
+
+/* ------------------------------------------------------- the depth profile */
+.depthprofile { margin: 0; padding: 0; }
+.depthprofile svg { display: block; margin-top: 8px; overflow: visible; }
+.depthprofile figcaption {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 10px;
+  color: var(--structure);
+}
+.depthprofile .dp-band { color: var(--muted); }
+.dp-key { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-direction: column; gap: 5px; }
+.dp-key li { display: flex; align-items: baseline; gap: 8px; font-size: 12px; color: var(--text); }
+.dp-swatch { width: 14px; height: 2px; flex: none; transform: translateY(-3px); }
+.dp-depth { margin-left: auto; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+/* ---------------------------------------------------------- the agreement */
+.agreement ul { list-style: none; margin: 9px 0 0; padding: 0; display: flex; flex-direction: column; gap: 7px; }
+.agreement li { display: grid; grid-template-columns: 1fr 64px 46px; gap: 10px; align-items: center; font-size: 12px; }
+.agreement li.thin { color: var(--structure); }
+.ag-pair { color: var(--text); }
+.agreement li.thin .ag-pair { color: var(--muted); }
+.ag-vs { color: var(--structure); }
+.ag-rule { height: 2px; background: var(--scaffold); display: block; }
+.ag-rule > span { display: block; height: 100%; background: var(--gold); }
+.ag-val { text-align: right; color: var(--gold); font-variant-numeric: tabular-nums; }
+.agreement li.thin .ag-val { color: var(--muted); }
+.agreement .note { margin: 8px 0 0; font-size: 11px; line-height: 1.5; color: var(--muted); }
+
+.stats.quiet { margin-top: 2px; font-size: 11px; color: var(--structure); }
+
+@media (max-width: 820px) {
+  .landing, .profile { max-height: none; }
+  .landing-lede { font-size: 14px; }
+  .matrix { font-size: 11px; }
+}

@@ -1,61 +1,38 @@
-export type ModelId = "gemma-2-2b" | "llama3.1-8b";
-export type View = ModelId | "compare";
+/** A Neuronpedia model id. Open-ended: the catalog decides what exists. */
+export type ModelId = string;
+
 /** how a model is drawn: stacked layer discs, or a globe with layers as latitudes */
 export type Shape = "stack" | "globe";
 /** what a plain left-drag does: turn the model, or move it across the screen */
 export type DragMode = "orbit" | "pan";
 
-export const MODEL_IDS: ModelId[] = ["gemma-2-2b", "llama3.1-8b"];
+/* ------------------------------------------------------------------ catalog
+   public/idx/catalog.json — written by scripts/build-index.mjs. One entry per
+   model, each with its own directory of files, so a visitor downloads only the
+   models they chose to compare. */
 
-/** frontend/public/manifest.json — written by scripts/pull_data.py */
-export interface ManifestModel {
+export interface CatalogModel {
   display: string;
-  source_set: string;
-  n_layers: number;
+  sourceSet: string;
+  nLayers: number;
+  /** features per layer in the full SAE, of which the index holds a sample */
   width: number;
-  fast: { total: number; per_layer: Record<string, number> };
-  deep: { total: number; per_layer: Record<string, number> };
-}
-export interface Manifest {
-  models: Record<ModelId, ManifestModel>;
-  generated_at: string;
-}
-
-/** The document shape indexed by scripts/index_typesense.py (docs/01-architecture.md §4). */
-export interface FeatureDoc {
-  id: string;
-  model: ModelId;
-  layer: number;
-  index: number;
-  description: string;
-  explainer?: string;
-  source?: string;
-  np_url?: string;
-  /** deep collection only: MiniLM embedding of `description` */
-  embedding?: number[];
+  /** descriptions actually indexed */
+  count: number;
+  perLayer: Record<string, number>;
+  /** int8 dequantisation scale for this model's vectors */
+  scale: number;
+  bytes: number;
 }
 
-export interface TsHit {
-  document: FeatureDoc;
-  text_match?: number;
-  vector_distance?: number;
-  hybrid_search_info?: { rank_fusion_score: number };
-  highlight?: { description?: { snippet?: string } };
+export interface Catalog {
+  version: number;
+  embedModel: string;
+  dims: number;
+  models: Record<ModelId, CatalogModel>;
 }
 
-export interface TsFacetCount {
-  field_name: string;
-  counts: { value: string; count: number }[];
-}
-
-export interface TsResult {
-  found: number;
-  search_time_ms?: number;
-  hits?: TsHit[];
-  facet_counts?: TsFacetCount[];
-  error?: string;
-  code?: number;
-}
+/* ------------------------------------------------------------------ results */
 
 /** One hit, flattened with everything the scene needs. */
 export interface Feature {
@@ -82,34 +59,11 @@ export interface Cluster {
   size: number;
 }
 
-/** A feature in one model and its nearest analogues in the other. */
+/** A feature in one model and its nearest analogues in another. */
 export interface Counterpart {
   source: Feature;
   target: ModelId;
   features: Feature[];
-}
-
-export interface ModelResult {
-  found: number;
-  perLayer: Record<number, number>;
-  features: Feature[];
-  score: number;
-  layersHit: number;
-  ms: number;
-  clusters: Cluster[];
-}
-
-/* --------------------------------------------------------------- the index
-   The corpus ships as static files and is searched in the browser; these are
-   the shapes that cross the worker boundary. */
-
-export interface IndexMeta {
-  version: number;
-  embedModel: string;
-  dims: number;
-  scale: number;
-  count: number;
-  models: Record<ModelId, { offset: number; count: number }>;
 }
 
 export interface Hit {
@@ -120,23 +74,50 @@ export interface Hit {
   score: number;
 }
 
+/**
+ * What one model says about one concept.
+ *
+ * `found` is a raw count and is not comparable between models, because they
+ * index different numbers of features; `density` is. Likewise `depth` is a
+ * fraction of the network rather than a layer number, so a 26-layer model and
+ * a 32-layer one can be read on the same axis.
+ */
 export interface ModelHits {
-  /** every feature above the floor, not a page of them */
   found: number;
+  /** hits per 1,000 indexed descriptions */
+  density: number;
+  /** mass-weighted mean position in the network, 0 = first layer, 1 = last */
+  depth: number;
+  /** entropy of the layer distribution over log(nLayers): 0 localised, 1 even */
+  spread: number;
   perLayer: Record<number, number>;
+  /** per-layer share of hits, indexed by relative depth — comparable across models */
+  profile: { at: number; share: number }[];
+  /** mean unit embedding of everything above the floor; compare across models */
+  centroid: number[];
   hits: Hit[];
   embeddings: number[][];
 }
 
+export interface ModelResult extends ModelHits {
+  layersHit: number;
+  features: Feature[];
+  clusters: Cluster[];
+  score: number;
+  ms: number;
+}
+
 export type WorkerIn =
-  | { type: "init" }
+  | { type: "init"; models: ModelId[] }
+  | { type: "add"; models: ModelId[] }
   | { type: "search"; id: number; q: string; models: ModelId[] };
 
 export type WorkerOut =
   | { type: "progress"; phase: "index" | "model"; loaded: number; total: number }
   | { type: "phase"; phase: "index" | "model"; restored?: boolean }
   | { type: "ready"; restored: boolean; persisted: boolean }
-  | { type: "result"; id: number; results: Record<string, ModelHits>; ms: number }
+  | { type: "loaded"; models: ModelId[] }
+  | { type: "result"; id: number; results: Record<ModelId, ModelHits>; ms: number }
   | { type: "error"; id?: number; message: string };
 
 /** How far the one-time load of the index and the encoder has got. */

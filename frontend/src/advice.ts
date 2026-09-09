@@ -1,4 +1,4 @@
-import type { ManifestModel, ModelResult } from "./types";
+import type { CatalogModel, ModelResult } from "./types";
 
 /**
  * Turning the search result into something a working engineer can act on.
@@ -73,12 +73,12 @@ function weakestRun(
 
 export function diagnose(
   result: ModelResult | undefined,
-  model: ManifestModel,
+  model: CatalogModel,
   concept: string
 ): Diagnosis | null {
   if (!result) return null;
 
-  const n = model.n_layers;
+  const n = model.nLayers;
   const third = Math.floor(n / 3);
   const spec: Omit<Band, "matched" | "share">[] = [
     { key: "early", label: "early", role: "tokens & surface form", from: 0, to: third - 1 },
@@ -112,7 +112,7 @@ export function diagnose(
 
   // What the search actually covered, so a dark map can be read honestly: the
   // deep index is a per-layer sample of the model's features, not all of them.
-  const sampled = Math.round(model.deep.total / n);
+  const sampled = Math.round(model.count / n);
   const coverPct = Math.max(1, Math.round((sampled / model.width) * 100));
   const sampleNote = `deep search reads a sample of ~${sampled.toLocaleString()} of this layer's ${model.width.toLocaleString()} feature descriptions (~${coverPct}%), and those descriptions are automated summaries`;
 

@@ -5,10 +5,10 @@ import * as THREE from "three";
 import { C } from "../palette";
 import { LAYER_GAP, smooth } from "../coverage";
 import { GLOBE_RADIUS, featurePosition, globeLatitude } from "../geometry";
-import { modelsFor, useStore } from "../store";
+import { useStore } from "../store";
 import { progressFraction } from "../search";
 import { Stack } from "./Stack";
-import type { ModelId, Shape, View } from "../types";
+import type { ModelId, Shape } from "../types";
 
 const STACK_SPREAD = 7.5;
 const GLOBE_SPREAD = GLOBE_RADIUS + 3.2;
@@ -17,9 +17,16 @@ export function spreadFor(shape: Shape): number {
   return shape === "globe" ? GLOBE_SPREAD : STACK_SPREAD;
 }
 
-export function offsetFor(view: View, model: ModelId, shape: Shape = "stack"): number {
-  if (view !== "compare") return 0;
-  return model === "gemma-2-2b" ? -spreadFor(shape) : spreadFor(shape);
+/**
+ * Where a model's stack stands. One model sits at the origin; several are laid
+ * out symmetrically about it in the order they were picked, so adding a third
+ * model widens the scene rather than reshuffling the two already on screen.
+ */
+export function offsetFor(models: ModelId[], model: ModelId, shape: Shape = "stack"): number {
+  const n = models.length;
+  if (n < 2) return 0;
+  const i = models.indexOf(model);
+  return (i - (n - 1) / 2) * spreadFor(shape) * (n > 2 ? 1.5 : 1);
 }
 
 /** Slow drift while nothing is searched; stops the moment results land. */
@@ -122,25 +129,25 @@ function Camera({
 function HoverLabel() {
   const hovered = useStore((s) => s.hovered);
   const results = useStore((s) => s.results);
-  const view = useStore((s) => s.view);
+  const selected = useStore((s) => s.selected);
   const counterpart = useStore((s) => s.counterpart);
   const shape = useStore((s) => s.shape);
-  const manifest = useStore((s) => s.manifest);
+  const catalog = useStore((s) => s.catalog);
 
   const found = useMemo(() => {
     if (!hovered) return null;
-    for (const m of modelsFor(view)) {
+    for (const m of selected) {
       const f = results[m]?.features.find((x) => x.id === hovered);
-      if (f) return { f, xOffset: offsetFor(view, m, shape) };
+      if (f) return { f, xOffset: offsetFor(selected, m, shape) };
     }
     const c = counterpart?.features.find((x) => x.id === hovered);
-    if (c && counterpart) return { f: c, xOffset: offsetFor(view, counterpart.target, shape) };
+    if (c && counterpart) return { f: c, xOffset: offsetFor(selected, counterpart.target, shape) };
     return null;
-  }, [hovered, results, view, counterpart, shape]);
+  }, [hovered, results, selected, counterpart, shape]);
 
   if (!found) return null;
   const { f, xOffset } = found;
-  const nLayers = manifest?.models[f.model].n_layers ?? 26;
+  const nLayers = catalog?.models[f.model].nLayers ?? 26;
 
   return (
     <Html zIndexRange={[10, 0]} position={featurePosition(f, xOffset, shape, nLayers)} style={{ pointerEvents: "none" }}>
@@ -153,8 +160,8 @@ function HoverLabel() {
 }
 
 export function Scene() {
-  const manifest = useStore((s) => s.manifest);
-  const view = useStore((s) => s.view);
+  const catalog = useStore((s) => s.catalog);
+  const selected = useStore((s) => s.selected);
   const results = useStore((s) => s.results);
   const generation = useStore((s) => s.generation);
   const isolated = useStore((s) => s.isolated);
@@ -178,20 +185,20 @@ export function Scene() {
     return () => window.removeEventListener("keydown", onKey);
   }, [resetCamera]);
 
-  const models = modelsFor(view);
+  const models = selected;
   // While the index is arriving the stack is drawn as far as the bytes have
   // got: the thing being waited for assembles itself, one layer at a time,
   // instead of a spinner standing in front of an empty screen.
   const reveal = progressFraction(useStore((s) => s.load));
   const drawnLayers = (n: number) => (reveal >= 1 ? n : Math.max(1, Math.ceil(reveal * n)));
   const anyResults = models.some((m) => (results[m]?.features.length ?? 0) > 0);
-  const nLayers = manifest ? Math.max(...models.map((m) => manifest.models[m].n_layers)) : 26;
+  const nLayers = catalog && models.length ? Math.max(...models.map((m) => catalog.models[m].nLayers)) : 26;
   const height = nLayers * LAYER_GAP;
   const halfWidth =
     shape === "globe"
-      ? (view === "compare" ? GLOBE_SPREAD : 0) + GLOBE_RADIUS + 1
-      : view === "compare"
-        ? STACK_SPREAD + 4.2
+      ? (models.length > 1 ? GLOBE_SPREAD * (models.length - 1) * 0.75 : 0) + GLOBE_RADIUS + 1
+      : models.length > 1
+        ? STACK_SPREAD * (models.length - 1) * (models.length > 2 ? 0.9 : 0.6) + 4.2
         : 4.2;
 
   return (
@@ -236,15 +243,15 @@ export function Scene() {
       />
       <IdleSpin active={!anyResults && isolated === null} />
 
-      {manifest &&
-        models.map((m) => (
+      {catalog &&
+        models.map((m: string) => (
           <Stack
             key={m}
             model={m}
-            nLayers={drawnLayers(manifest.models[m].n_layers)}
-            totalLayers={manifest.models[m].n_layers}
-            display={manifest.models[m].display}
-            xOffset={offsetFor(view, m, shape)}
+            nLayers={drawnLayers(catalog.models[m].nLayers)}
+            totalLayers={catalog.models[m].nLayers}
+            display={catalog.models[m].display}
+            xOffset={offsetFor(selected, m, shape)}
             shape={shape}
             features={results[m]?.features ?? []}
             generation={generation}
