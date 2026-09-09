@@ -42,10 +42,13 @@ export async function searchModels(
 export function toFeatures(result: TsResult, mode: Mode): Feature[] {
   const hits = result.hits ?? [];
   return hits.map((h, i) => {
+    // Deep: cosine similarity (1 - distance) spreads smoothly over the hit set.
+    // The rank-fusion score decays as 1/rank, so all but the top few would barely glow.
     const rel =
       mode === "deep"
-        ? h.hybrid_search_info?.rank_fusion_score ??
-          (h.vector_distance !== undefined ? 1 - h.vector_distance : 0.5)
+        ? h.vector_distance !== undefined
+          ? 1 - h.vector_distance
+          : h.hybrid_search_info?.rank_fusion_score ?? 0.5
         : 1 - i / Math.max(1, hits.length);
     return {
       id: h.document.id,

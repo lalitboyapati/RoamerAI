@@ -112,7 +112,7 @@ PRESETS = {
         "prefix": False,
         "drop_tokens_threshold": 0,
         # alpha: 0=keyword only .. 1=vector only. k: candidate pool. distance_threshold: cosine distance cutoff.
-        "vector_query": "embedding:([], alpha: 0.6, k: 600, distance_threshold: 0.60)",
+        "vector_query": "embedding:([], alpha: 0.6, k: 600, distance_threshold: 0.70)",
         "facet_by": "layer",
         "max_facet_values": 64,
         "per_page": 250,
@@ -245,7 +245,7 @@ def cmd_import(args) -> None:
     data = Path(args.data)
     files = sorted(data.glob(f"*.{args.mode}.jsonl"))
     if args.models:
-        files = [p for p in files if p.name.split(".")[0] in args.models]
+        files = [p for p in files if p.name.removesuffix(f".{args.mode}.jsonl") in args.models]
     if not files:
         raise SystemExit(f"no {args.mode} files in {data}/ — run scripts/pull_data.py first")
     # deep = server-side embedding generation per doc => smaller chunks, longer timeout

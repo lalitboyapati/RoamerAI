@@ -54,7 +54,7 @@ Not used (say so if asked): Conversational/RAG, Natural Language Search, geo, JO
 // roamer_deep
 { "query_by": "description,descriptions,embedding", "query_by_weights": "3,1,1",
   "num_typos": 1, "prefix": false, "drop_tokens_threshold": 0,
-  "vector_query": "embedding:([], alpha: 0.6, k: 600, distance_threshold: 0.60)",
+  "vector_query": "embedding:([], alpha: 0.6, k: 600, distance_threshold: 0.70)",
   "facet_by": "layer", "max_facet_values": 64, "per_page": 250,
   "exclude_fields": "embedding,descriptions", "highlight_fields": "description" }
 ```
