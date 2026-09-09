@@ -142,7 +142,7 @@ function HoverLabel() {
   const nLayers = manifest?.models[f.model].n_layers ?? 26;
 
   return (
-    <Html position={featurePosition(f, xOffset, shape, nLayers)} style={{ pointerEvents: "none" }}>
+    <Html zIndexRange={[10, 0]} position={featurePosition(f, xOffset, shape, nLayers)} style={{ pointerEvents: "none" }}>
       <div className="node-label">
         <span className="node-label-loc">layer {f.layer} · feature #{f.index}</span>
         {f.description}

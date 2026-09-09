@@ -163,7 +163,18 @@ export const useStore = create<State>((set, get) => ({
 
   // the layer panel and the counterpart share a slot on screen, so opening one closes the other
   toggleIsolated: (layer) =>
-    set((s) => ({ isolated: layer === null || s.isolated === layer ? null : layer, counterpart: null })),
+    set((s) => {
+      const isolated = layer === null || s.isolated === layer ? null : layer;
+      // The last note asks them to open a layer. Doing it finishes the
+      // walkthrough rather than leaving it asking for something already done.
+      const done = isolated !== null && s.guideStep === GUIDE_STEPS - 1;
+      if (done) writeSeen();
+      return {
+        isolated,
+        counterpart: null,
+        ...(done ? { guideStep: null, guideSeen: true } : null),
+      };
+    }),
 
   resetCamera: () => set((s) => ({ isolated: null, frameNonce: s.frameNonce + 1 })),
 

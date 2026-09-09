@@ -31,6 +31,12 @@ export function Guide() {
   const step = useStore((s) => s.guideStep);
   const next = useStore((s) => s.nextGuide);
   const end = useStore((s) => s.endGuide);
+  // The layer panel and the counterpart share this column. A note that is
+  // waiting to be read yields to the thing the visitor just opened, and comes
+  // back where it left off when they close it.
+  const covered = useStore(
+    (s) => s.isolated !== null || s.counterpart !== null || s.counterpartLoading
+  );
 
   useEffect(() => {
     if (step === null) return;
@@ -50,7 +56,7 @@ export function Guide() {
     return () => window.removeEventListener("keydown", onKey);
   }, [step, next, end]);
 
-  if (step === null) return null;
+  if (step === null || covered) return null;
   const s = STEPS[step];
   const last = step === GUIDE_STEPS - 1;
 

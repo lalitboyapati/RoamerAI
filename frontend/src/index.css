@@ -68,6 +68,12 @@ figcaption,
   inset: 0;
   padding: 22px 30px;
   pointer-events: none;
+  /* The scene's labels are drei <Html> nodes in the canvas container, pinned to
+     z-index 10 there. .hud is position:fixed and so its own stacking context —
+     its children's z-indexes never competed with them. This is the one number
+     that puts the whole HUD above the scene's labels; the panels order among
+     themselves inside it. */
+  z-index: 12;
 }
 
 .hud button,
@@ -320,12 +326,13 @@ header {
   max-height: 54vh;
   overflow-y: auto;
   scrollbar-width: none;
-  background: rgba(0, 0, 0, 0.88);
+  background: rgba(0, 0, 0, 0.96);
   border: 1px solid var(--scaffold);
   border-left: 1px solid var(--structure);
   padding: 14px 16px 16px;
   pointer-events: auto;
   animation: slide 220ms ease-out;
+  z-index: 20;
 }
 .layerpanel::-webkit-scrollbar { display: none; }
 @keyframes slide { from { opacity: 0; transform: translate(-8px, -50%); } }
@@ -419,12 +426,13 @@ figcaption { margin-top: 2px; text-transform: none; letter-spacing: 0.02em; line
   max-height: 54vh;
   overflow-y: auto;
   scrollbar-width: none;
-  background: rgba(0, 0, 0, 0.88);
+  background: rgba(0, 0, 0, 0.96);
   border: 1px solid var(--scaffold);
   border-left: 1px solid var(--gold);
   padding: 14px 16px 16px;
   pointer-events: auto;
   animation: slide 220ms ease-out;
+  z-index: 20;
 }
 .counterpart::-webkit-scrollbar { display: none; }
 .counterpart header { display: flex; align-items: baseline; gap: 10px; }
@@ -483,7 +491,7 @@ figcaption { margin-top: 2px; text-transform: none; letter-spacing: 0.02em; line
   overflow-y: auto;
   scrollbar-width: none;
   pointer-events: auto;
-  z-index: 3;
+  z-index: 21;
 }
 .sources::-webkit-scrollbar { display: none; }
 .sources header { display: flex; align-items: baseline; gap: 10px; }
@@ -634,7 +642,7 @@ figcaption { margin-top: 2px; text-transform: none; letter-spacing: 0.02em; line
   width: 300px;
   pointer-events: auto;
   animation: guide-in 340ms cubic-bezier(0.16, 1, 0.3, 1);
-  z-index: 4;
+  z-index: 22;
 }
 @keyframes guide-in { from { opacity: 0; transform: translateY(7px); } }
 

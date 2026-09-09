@@ -263,21 +263,21 @@ export function Architecture({
           corner still explains a layer. */}
       {!compare && (
         <>
-          <Html position={[-BRANCH_X - 0.5, 0.24 * LAYER_GAP, 0]} style={{ pointerEvents: "none" }}>
+          <Html zIndexRange={[10, 0]} position={[-BRANCH_X - 0.5, 0.24 * LAYER_GAP, 0]} style={{ pointerEvents: "none" }}>
             <div className="scene-label right">attention</div>
           </Html>
-          <Html position={[BRANCH_X + 0.45, 0.66 * LAYER_GAP, 0]} style={{ pointerEvents: "none" }}>
+          <Html zIndexRange={[10, 0]} position={[BRANCH_X + 0.45, 0.66 * LAYER_GAP, 0]} style={{ pointerEvents: "none" }}>
             <div className="scene-label">mlp</div>
           </Html>
-          <Html position={[0, -EMBED_DROP * 1.45, 0]} style={{ pointerEvents: "none" }}>
+          <Html zIndexRange={[10, 0]} position={[0, -EMBED_DROP * 1.45, 0]} style={{ pointerEvents: "none" }}>
             <div className="scene-label centre">tokens in</div>
           </Html>
-          <Html position={[0.16, top * 0.5, 0]} style={{ pointerEvents: "none" }}>
+          <Html zIndexRange={[10, 0]} position={[0.16, top * 0.5, 0]} style={{ pointerEvents: "none" }}>
             <div className="scene-label">residual stream</div>
           </Html>
         </>
       )}
-      <Html position={[0, top + LAYER_GAP * 2.1, 0]} style={{ pointerEvents: "none" }}>
+      <Html zIndexRange={[10, 0]} position={[0, top + LAYER_GAP * 2.1, 0]} style={{ pointerEvents: "none" }}>
         <div className="scene-label centre">{label} · {nLayers} layers</div>
       </Html>
     </group>
