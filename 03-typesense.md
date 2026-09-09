@@ -10,7 +10,7 @@ Typesense docs: https://typesense.org/docs/latest/api/ (server 30.x). Everything
 | 2 | **Bulk import API** (`/documents/import`, JSONL, `action=upsert`) | 1.47M docs in 10k-line chunks; idempotent re-runs | "1.5M documents indexed in minutes" |
 | 3 | **Typo-tolerant keyword search** (`num_typos`, `prefix`, `drop_tokens_threshold`) | Fast mode. `drop_tokens_threshold: 0` → all query words must match (precision over recall for an exact mode) | "Fast mode is exhaustive and exact" |
 | 4 | **Auto-embedding with a built-in model** (`embed.from`, `ts/all-MiniLM-L12-v2`) | `features_deep.embedding` generated server-side at import; queries embedded server-side at search | "No embedding pipeline, no GPU, no OpenAI bill" |
-| 5 | **Hybrid search** (`query_by: "...,embedding"`, `vector_query: "embedding:([], alpha, k, distance_threshold)"`) | Deep mode: keyword + semantic rank-fused; `alpha 0.6` leans semantic; `distance_threshold 0.60` cuts weak matches so `found` is meaningful | "Type the idea, not the keyword" |
+| 5 | **Hybrid search** (`query_by: "...,embedding"`, `vector_query: "embedding:([], alpha, k, distance_threshold)"`) | Deep mode: keyword + semantic rank-fused; `alpha 0.6` leans semantic; `distance_threshold 0.70` cuts weak matches so `found` is meaningful | "Type the idea, not the keyword" |
 | 6 | **Federated `multi_search`** | One HTTP request returns Gemma and Llama results side by side for Compare | "Two models, one round trip" |
 | 7 | **Faceting** (`facet_by: layer`, `max_facet_values: 64`) | Per-layer hit counts over the *whole* result set without paging → per-layer bar + spread term of the score | "The layer bar is a facet" |
 | 8 | **`found`** | Total matches → density term of the score, no paging | — |
