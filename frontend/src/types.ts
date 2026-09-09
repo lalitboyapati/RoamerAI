@@ -28,6 +28,8 @@ export interface FeatureDoc {
   explainer?: string;
   source?: string;
   np_url?: string;
+  /** deep collection only: MiniLM embedding of `description` */
+  embedding?: number[];
 }
 
 export interface TsHit {
@@ -62,6 +64,24 @@ export interface Feature {
   npUrl?: string;
   /** 0..1 relevance, drives glow size + brightness */
   rel: number;
+  /** semantic (x,z) on the layer disc from PCA of the description embedding; absent in fast mode */
+  pos?: [number, number];
+  /** k-means cluster over description embeddings; absent in fast mode */
+  cluster?: number;
+}
+
+export interface Cluster {
+  id: number;
+  label: string;
+  colour: string;
+  size: number;
+}
+
+/** A feature in one model and its nearest analogues in the other. */
+export interface Counterpart {
+  source: Feature;
+  target: ModelId;
+  features: Feature[];
 }
 
 export interface ModelResult {
@@ -71,4 +91,6 @@ export interface ModelResult {
   score: number;
   layersHit: number;
   ms: number;
+  /** deep mode only */
+  clusters: Cluster[];
 }

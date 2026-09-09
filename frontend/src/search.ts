@@ -1,6 +1,8 @@
 import Typesense from "typesense";
 import type { Feature, ModelId, Mode, TsResult } from "./types";
 
+export const otherModel = (m: ModelId): ModelId => (m === "gemma-2-2b" ? "llama3.1-8b" : "gemma-2-2b");
+
 const env = import.meta.env;
 
 export const client = new Typesense.Client({
@@ -60,6 +62,31 @@ export function toFeatures(result: TsResult, mode: Mode): Feature[] {
       rel: Math.max(0, Math.min(1, rel)),
     };
   });
+}
+
+/** Embedding per hit, in hit order (deep only; fast hits have none). */
+export function toEmbeddings(result: TsResult): (number[] | undefined)[] {
+  return (result.hits ?? []).map((h) => h.document.embedding);
+}
+
+/**
+ * Counterpart search: the nearest features in the *other* model to one feature,
+ * found by searching that model's deep index with the feature's description.
+ * Nothing crosses between models except meaning.
+ */
+export async function searchCounterpart(source: Feature, target: ModelId): Promise<TsResult> {
+  const res = await client.multiSearch.perform({
+    searches: [
+      {
+        collection: "features_deep",
+        preset: "roamer_deep",
+        q: source.description,
+        filter_by: `model:=${target}`,
+        per_page: 40,
+      },
+    ],
+  });
+  return (res.results as unknown as TsResult[])[0];
 }
 
 export function perLayerCounts(result: TsResult): Record<number, number> {

@@ -386,3 +386,35 @@ figcaption { margin-top: 2px; text-transform: none; letter-spacing: 0.02em; line
 @media (prefers-reduced-motion: reduce) {
   * { animation: none !important; transition: none !important; }
 }
+
+/* ------------------------------------------------ bottom-left: legend + counterpart */
+.bottom-left {
+  position: absolute;
+  left: 30px;
+  bottom: 48px;
+  width: min(340px, 30vw);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  pointer-events: auto;
+}
+.legend ul, .counterpart ul { list-style: none; margin: 8px 0 0; padding: 0; }
+.legend li {
+  display: flex; align-items: baseline; gap: 8px;
+  font-size: 12.5px; color: var(--text); line-height: 1.6;
+}
+.legend .swatch { width: 8px; height: 8px; border-radius: 50%; flex: none; transform: translateY(-1px); }
+.legend .count { color: var(--muted); margin-left: auto; font-variant-numeric: tabular-nums; }
+.legend .note { margin: 6px 0 0; font-size: 11px; color: var(--muted); line-height: 1.4; }
+
+.counterpart header { display: flex; align-items: baseline; gap: 10px; }
+.counterpart header .close { margin-left: auto; color: var(--muted); font-size: 11px; }
+.counterpart header .close:hover { color: var(--text); }
+.counterpart .src { margin: 6px 0 0; font-size: 12.5px; color: var(--text); line-height: 1.4; }
+.counterpart .src .loc { color: var(--yellow); margin-right: 6px; }
+.counterpart .arrow-line { margin: 8px 0 0; font-size: 12px; color: var(--gold); }
+.counterpart li { font-size: 12px; line-height: 1.45; color: var(--text); }
+.counterpart li .loc { color: var(--gold); margin-right: 6px; font-variant-numeric: tabular-nums; }
+.counterpart li a { color: inherit; text-decoration: none; }
+.counterpart li a:hover { color: var(--white); }
+.counterpart .none { color: var(--muted); }

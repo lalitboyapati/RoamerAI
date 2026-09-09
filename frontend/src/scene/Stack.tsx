@@ -3,6 +3,7 @@ import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { C } from "../palette";
 import { nodePosition, smooth } from "../coverage";
+import { CLUSTER_COLOURS, featurePosition } from "../geometry";
 import { Architecture } from "./Architecture";
 import type { Feature } from "../types";
 
@@ -46,31 +47,42 @@ interface MatchedProps {
   isolated: number | null;
   hovered: string | null;
   onHover: (id: string | null) => void;
+  /** clicking a lit feature asks for its counterpart in the other model */
+  onPick?: (id: string) => void;
+  /** feature id whose counterparts are being shown; drawn in the accent colour */
+  sourceId?: string | null;
+  /** override every node's colour (used for the counterpart overlay) */
+  tint?: string;
 }
 
 /**
  * The lit features. One instanced mesh, one useFrame — the ignition cascade is
  * a per-instance delay read in the frame loop, never a spring per node.
  */
-function Matched({ model, features, xOffset, generation, isolated, hovered, onHover }: MatchedProps) {
+function Matched({ model, features, xOffset, generation, isolated, hovered, onHover, onPick, sourceId, tint }: MatchedProps) {
   const mesh = useRef<THREE.InstancedMesh>(null);
   const start = useRef(0);
   const dummy = useMemo(() => new THREE.Object3D(), []);
   const colour = useMemo(() => new THREE.Color(), []);
-  const base = useMemo(() => new THREE.Color(C.BLUE), []);
   const accent = useMemo(() => new THREE.Color(C.YELLOW), []);
+  const palette = useMemo(() => {
+    const p: Record<string, THREE.Color> = { base: new THREE.Color(tint ?? C.BLUE) };
+    CLUSTER_COLOURS.forEach((c, i) => (p[i] = new THREE.Color(c)));
+    return p;
+  }, [tint]);
 
   const layout = useMemo(() => {
     start.current = 0;
     return features.map((f) => ({
-      pos: nodePosition(model, f.layer, f.index, xOffset),
+      pos: featurePosition(f, xOffset),
       delay: f.layer * LAYER_STAGGER_MS,
       rel: f.rel,
       id: f.id,
       layer: f.layer,
+      colour: tint === undefined && f.cluster !== undefined ? palette[f.cluster] : palette.base,
     }));
     // generation forces a fresh cascade even when the same features come back
-  }, [features, model, xOffset, generation]);
+  }, [features, model, xOffset, generation, tint, palette]);
 
   useFrame(({ clock }) => {
     const m = mesh.current;
@@ -83,17 +95,17 @@ function Matched({ model, features, xOffset, generation, isolated, hovered, onHo
       const n = layout[i];
       const p = Math.max(0, Math.min(1, (t - n.delay) / IGNITE_MS));
       const grow = smooth(p);
-      const isHovered = hovered === n.id;
+      const isHovered = hovered === n.id || sourceId === n.id;
       const dimmed = isolated !== null && isolated !== n.layer;
 
-      const radius = 0.06 * (0.6 + 0.8 * n.rel) * (isHovered ? 1.4 : 1);
+      const radius = 0.06 * (0.6 + 0.8 * n.rel) * (isHovered ? 1.6 : 1);
       dummy.position.set(n.pos[0], n.pos[1], n.pos[2]);
       dummy.scale.setScalar(radius * grow * (dimmed ? 0.6 : 1));
       dummy.updateMatrix();
       m.setMatrixAt(i, dummy.matrix);
 
       const brightness = (0.4 + 0.6 * n.rel) * grow * (dimmed ? 0.08 : 1);
-      colour.copy(isHovered ? accent : base).multiplyScalar(brightness);
+      colour.copy(isHovered ? accent : n.colour).multiplyScalar(brightness);
       m.setColorAt(i, colour);
     }
     m.instanceMatrix.needsUpdate = true;
@@ -113,6 +125,13 @@ function Matched({ model, features, xOffset, generation, isolated, hovered, onHo
         if (e.instanceId !== undefined) onHover(layout[e.instanceId]?.id ?? null);
       }}
       onPointerOut={() => onHover(null)}
+      onClick={(e) => {
+        e.stopPropagation();
+        if (onPick && e.instanceId !== undefined) {
+          const id = layout[e.instanceId]?.id;
+          if (id) onPick(id);
+        }
+      }}
     >
       <sphereGeometry args={[1, 10, 10]} />
       <meshBasicMaterial toneMapped={false} />
@@ -121,6 +140,8 @@ function Matched({ model, features, xOffset, generation, isolated, hovered, onHo
 }
 
 export interface StackProps extends MatchedProps {
+  /** the other model's analogues of the picked feature, drawn on this stack in gold */
+  counterparts: Feature[];
   nLayers: number;
   display: string;
   hoveredLayer: number | null;
@@ -129,6 +150,7 @@ export interface StackProps extends MatchedProps {
 }
 
 export function Stack({
+  counterparts,
   nLayers,
   display,
   hoveredLayer,
@@ -149,6 +171,16 @@ export function Stack({
       />
       <Scaffold model={rest.model} nLayers={nLayers} xOffset={rest.xOffset} />
       <Matched {...rest} />
+      {counterparts.length > 0 && (
+        <Matched
+          {...rest}
+          features={counterparts}
+          tint={C.GOLD}
+          onPick={undefined}
+          sourceId={null}
+          generation={rest.generation + 1000}
+        />
+      )}
     </group>
   );
 }

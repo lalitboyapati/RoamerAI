@@ -8,6 +8,8 @@ import { LayerPanel } from "./LayerPanel";
 import { LayerTicks } from "./LayerTicks";
 import { Readout } from "./Readout";
 import { Schematic } from "./Schematic";
+import { Legend } from "./Legend";
+import { CounterpartPanel } from "./Counterpart";
 
 const MODES: { id: Mode; label: string }[] = [
   { id: "fast", label: "fast" },
@@ -140,7 +142,12 @@ export function Hud() {
           ))}
       </div>
 
-      <p className="hint">drag to orbit · scroll to zoom · click a layer to open it · double-click or R to reset the view</p>
+      <div className="bottom-left">
+        <CounterpartPanel />
+        <Legend />
+      </div>
+
+      <p className="hint">drag to orbit · scroll to zoom · click a layer to open it · click a lit feature to find its counterpart · double-click or R to reset</p>
     </div>
   );
 }

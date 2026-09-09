@@ -116,7 +116,7 @@ PRESETS = {
         "facet_by": "layer",
         "max_facet_values": 64,
         "per_page": 250,
-        "exclude_fields": "embedding,descriptions",
+        "exclude_fields": "descriptions",  # embedding stays: the browser runs PCA + clustering on it
         "highlight_fields": "description",
         "synonym_sets": SYNONYM_SET,
     },

@@ -3,7 +3,8 @@ import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Html, OrbitControls } from "@react-three/drei";
 import * as THREE from "three";
 import { C } from "../palette";
-import { LAYER_GAP, nodePosition, smooth } from "../coverage";
+import { LAYER_GAP, smooth } from "../coverage";
+import { featurePosition } from "../geometry";
 import { modelsFor, useStore } from "../store";
 import { Stack } from "./Stack";
 import type { ModelId, View } from "../types";
@@ -97,6 +98,7 @@ function HoverLabel() {
   const hovered = useStore((s) => s.hovered);
   const results = useStore((s) => s.results);
   const view = useStore((s) => s.view);
+  const counterpart = useStore((s) => s.counterpart);
 
   const found = useMemo(() => {
     if (!hovered) return null;
@@ -104,14 +106,16 @@ function HoverLabel() {
       const f = results[m]?.features.find((x) => x.id === hovered);
       if (f) return { f, xOffset: offsetFor(view, m) };
     }
+    const c = counterpart?.features.find((x) => x.id === hovered);
+    if (c && counterpart) return { f: c, xOffset: offsetFor(view, counterpart.target) };
     return null;
-  }, [hovered, results, view]);
+  }, [hovered, results, view, counterpart]);
 
   if (!found) return null;
   const { f, xOffset } = found;
 
   return (
-    <Html position={nodePosition(f.model, f.layer, f.index, xOffset)} style={{ pointerEvents: "none" }}>
+    <Html position={featurePosition(f, xOffset)} style={{ pointerEvents: "none" }}>
       <div className="node-label">
         <span className="node-label-loc">layer {f.layer} · feature #{f.index}</span>
         {f.description}
@@ -133,6 +137,8 @@ export function Scene() {
   const toggleIsolated = useStore((s) => s.toggleIsolated);
   const resetCamera = useStore((s) => s.resetCamera);
   const frameNonce = useStore((s) => s.frameNonce);
+  const counterpart = useStore((s) => s.counterpart);
+  const findCounterpart = useStore((s) => s.findCounterpart);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -187,6 +193,9 @@ export function Scene() {
             onHover={setHovered}
             onHoverLayer={setHoveredLayer}
             onPickLayer={toggleIsolated}
+            onPick={(id) => void findCounterpart(id)}
+            sourceId={counterpart?.source.model === m ? counterpart.source.id : null}
+            counterparts={counterpart?.target === m ? counterpart.features : []}
           />
         ))}
 

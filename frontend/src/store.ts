@@ -1,7 +1,8 @@
 import { create } from "zustand";
 import { coverageScore } from "./coverage";
-import { perLayerCounts, searchModels, toFeatures } from "./search";
-import { MODEL_IDS, type Manifest, type ModelId, type ModelResult, type Mode, type View } from "./types";
+import { otherModel, perLayerCounts, searchCounterpart, searchModels, toEmbeddings, toFeatures } from "./search";
+import { layoutFeatures } from "./geometry";
+import { MODEL_IDS, type Counterpart, type Feature, type Manifest, type ModelId, type ModelResult, type Mode, type View } from "./types";
 
 interface State {
   q: string;
@@ -21,6 +22,9 @@ interface State {
   generation: number;
   /** bumped to ease the camera back to the framing shot */
   frameNonce: number;
+  /** one feature and its nearest analogues in the other model */
+  counterpart: Counterpart | null;
+  counterpartLoading: boolean;
 
   loadManifest: () => Promise<void>;
   setQuery: (q: string) => void;
@@ -33,6 +37,8 @@ interface State {
   toggleIsolated: (layer: number | null) => void;
   resetCamera: () => void;
   run: () => Promise<void>;
+  findCounterpart: (id: string) => Promise<void>;
+  clearCounterpart: () => void;
 }
 
 /** Which models the current view needs results for. */
@@ -55,6 +61,8 @@ export const useStore = create<State>((set, get) => ({
   hoveredLayer: null,
   generation: 0,
   frameNonce: 0,
+  counterpart: null,
+  counterpartLoading: false,
 
   loadManifest: async () => {
     try {
@@ -67,7 +75,7 @@ export const useStore = create<State>((set, get) => ({
   },
 
   setQuery: (q) => {
-    set({ q, isolated: null });
+    set({ q, isolated: null, counterpart: null });
     clearTimeout(debounce);
     if (!q.trim()) {
       set({ results: {}, loading: false, error: null });
@@ -78,7 +86,7 @@ export const useStore = create<State>((set, get) => ({
 
   askFor: (q, mode) => {
     clearTimeout(debounce);
-    set({ q, mode, isolated: null });
+    set({ q, mode, isolated: null, counterpart: null });
     void get().run();
   },
 
@@ -119,11 +127,13 @@ export const useStore = create<State>((set, get) => ({
         if (r.error) throw new Error(r.error);
         const perLayer = perLayerCounts(r);
         const layersHit = Object.values(perLayer).filter((n) => n > 0).length;
+        const laid = layoutFeatures(toFeatures(r, mode), toEmbeddings(r));
         results[model] = {
           found: r.found,
           perLayer,
           layersHit,
-          features: toFeatures(r, mode),
+          features: laid.features,
+          clusters: laid.clusters,
           score: coverageScore(r.found, layersHit, manifest.models[model], mode),
           ms: r.search_time_ms ?? elapsed,
         };
@@ -134,4 +144,28 @@ export const useStore = create<State>((set, get) => ({
       set({ loading: false, error: e instanceof Error ? e.message : String(e) });
     }
   },
+
+  findCounterpart: async (id) => {
+    const { results, view } = get();
+    let source: Feature | undefined;
+    for (const m of modelsFor(view)) {
+      source = results[m]?.features.find((f) => f.id === id);
+      if (source) break;
+    }
+    if (!source) return;
+    const target = otherModel(source.model);
+    // both stacks have to be on screen for the counterpart to mean anything
+    if (view !== "compare") set({ view: "compare" });
+    set({ counterpartLoading: true, isolated: null });
+    try {
+      const r = await searchCounterpart(source, target);
+      if (r.error) throw new Error(r.error);
+      set({ counterpart: { source, target, features: toFeatures(r, "deep") }, counterpartLoading: false });
+      if (view !== "compare") void get().run();
+    } catch (e) {
+      set({ counterpartLoading: false, error: e instanceof Error ? e.message : String(e) });
+    }
+  },
+
+  clearCounterpart: () => set({ counterpart: null }),
 }));
