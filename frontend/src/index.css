@@ -621,6 +621,19 @@ figcaption { margin-top: 2px; text-transform: none; letter-spacing: 0.02em; line
 
 .msg-arrow { color: var(--blue); }
 
+/* ------------------------------------------------------------ first visit */
+.loader { display: flex; flex-direction: column; gap: 9px; max-width: 44ch; }
+.loader-what { margin: 0; font-size: 13px; color: var(--text); }
+.loader-size { color: var(--muted); font-variant-numeric: tabular-nums; }
+.loader-rule { display: block; height: 1px; background: var(--scaffold); }
+.loader-rule > span {
+  display: block;
+  height: 100%;
+  background: var(--blue);
+  transition: width 200ms linear;
+}
+.loader-note { margin: 2px 0 0; font-size: 11.5px; line-height: 1.55; color: var(--muted); }
+
 /* ---------------------------------------------------- the failure reading
    Why a thin or dark result is evidence rather than proof. */
 .caveat {

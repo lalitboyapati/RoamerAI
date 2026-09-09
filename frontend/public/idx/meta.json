@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "embedModel": "Xenova/all-MiniLM-L6-v2",
+  "sourceDims": 384,
+  "dims": 384,
+  "scale": 0.0026666111364139346,
+  "count": 59168,
+  "pca": false,
+  "models": {
+    "gemma-2-2b": {
+      "offset": 0,
+      "count": 26603
+    },
+    "llama3.1-8b": {
+      "offset": 26603,
+      "count": 32565
+    }
+  }
+}

@@ -1,92 +1,101 @@
-import Typesense from "typesense";
-import type { Feature, ModelId, TsResult } from "./types";
+import type { Feature, LoadState, ModelHits, ModelId, WorkerOut } from "./types";
 
 export const otherModel = (m: ModelId): ModelId => (m === "gemma-2-2b" ? "llama3.1-8b" : "gemma-2-2b");
 
-const env = import.meta.env;
-
-export const client = new Typesense.Client({
-  nodes: [
-    {
-      host: env.VITE_TYPESENSE_HOST ?? "localhost",
-      port: Number(env.VITE_TYPESENSE_PORT ?? 8108),
-      protocol: env.VITE_TYPESENSE_PROTOCOL ?? "http",
-    },
-  ],
-  apiKey: env.VITE_TYPESENSE_SEARCH_KEY ?? "",
-  connectionTimeoutSeconds: 15,
-});
-
 /**
- * One federated multi_search covers every model on screen. Search parameters
- * live server-side in the roamer_deep preset — the browser only ever sends
- * collection, preset, q and filter_by.
+ * The client half of the search.
  *
- * Hybrid semantic search is the only mode there is: keyword-only matching made
- * every multi-word concept a dead end for anyone who did not already know the
- * index's vocabulary.
+ * There is no backend and no third-party call: the index and the sentence
+ * encoder are static files on this origin, and the scoring happens in a worker
+ * (see search.worker.ts). This module only owns the conversation with it.
+ *
+ * One consequence worth knowing: `found` is now the true number of features
+ * above the similarity floor. The hosted index used to cap its candidate pool
+ * at 600, which clipped the count the coverage score is built on.
  */
-export async function searchModels(q: string, models: ModelId[]): Promise<TsResult[]> {
-  const res = await client.multiSearch.perform({
-    searches: models.map((m) => ({
-      collection: "features_deep",
-      preset: "roamer_deep",
-      q,
-      filter_by: `model:=${m}`,
-    })),
-  });
-  return res.results as unknown as TsResult[];
+let worker: Worker | null = null;
+let seq = 0;
+const pending = new Map<number, { ok: (r: Record<string, ModelHits>, ms: number) => void; fail: (e: Error) => void }>();
+
+let load: LoadState = { phase: "index", loaded: 0, total: 0 };
+let readyResolve: (() => void) | null = null;
+let readyReject: ((e: Error) => void) | null = null;
+const readyPromise = new Promise<void>((res, rej) => {
+  readyResolve = res;
+  readyReject = rej;
+});
+const listeners = new Set<(s: LoadState) => void>();
+
+export const loadState = () => load;
+export function onLoad(fn: (s: LoadState) => void) {
+  listeners.add(fn);
+  fn(load);
+  return () => listeners.delete(fn);
+}
+function setLoad(next: LoadState) {
+  load = next;
+  for (const fn of listeners) fn(next);
 }
 
-export function toFeatures(result: TsResult): Feature[] {
-  const hits = result.hits ?? [];
-  return hits.map((h) => {
-    // Cosine similarity (1 - distance) spreads smoothly over the hit set. The
-    // rank-fusion score decays as 1/rank, so all but the top few would barely glow.
-    const rel =
-      h.vector_distance !== undefined
-        ? 1 - h.vector_distance
-        : h.hybrid_search_info?.rank_fusion_score ?? 0.5;
-    return {
-      id: h.document.id,
-      model: h.document.model,
-      layer: h.document.layer,
-      index: h.document.index,
-      description: h.document.description,
-      npUrl: h.document.np_url,
-      rel: Math.max(0, Math.min(1, rel)),
-    };
-  });
+/** Start fetching the index and the encoder. Safe to call more than once. */
+export function startSearch() {
+  if (worker) return readyPromise;
+  worker = new Worker(new URL("./search.worker.ts", import.meta.url), { type: "module" });
+  worker.onmessage = (e: MessageEvent<WorkerOut>) => {
+    const m = e.data;
+    if (m.type === "progress") setLoad({ phase: m.phase, loaded: m.loaded, total: m.total });
+    else if (m.type === "phase") setLoad({ phase: m.phase, loaded: 0, total: 0 });
+    else if (m.type === "ready") {
+      setLoad({ phase: "ready", loaded: 1, total: 1 });
+      readyResolve?.();
+    } else if (m.type === "result") {
+      pending.get(m.id)?.ok(m.results, m.ms);
+      pending.delete(m.id);
+    } else if (m.type === "error") {
+      const err = new Error(m.message);
+      if (m.id !== undefined) {
+        pending.get(m.id)?.fail(err);
+        pending.delete(m.id);
+      } else readyReject?.(err);
+    }
+  };
+  worker.onerror = (e) => readyReject?.(new Error(e.message || "the search index failed to start"));
+  worker.postMessage({ type: "init" });
+  return readyPromise;
 }
 
-/** Embedding per hit, in hit order. */
-export function toEmbeddings(result: TsResult): (number[] | undefined)[] {
-  return (result.hits ?? []).map((h) => h.document.embedding);
+export async function searchModels(q: string, models: ModelId[]) {
+  await startSearch();
+  const id = ++seq;
+  return new Promise<{ results: Record<string, ModelHits>; ms: number }>((ok, fail) => {
+    pending.set(id, { ok: (results, ms) => ok({ results, ms }), fail });
+    worker!.postMessage({ type: "search", id, q, models });
+  });
 }
 
 /**
- * Counterpart search: the nearest features in the *other* model to one feature,
- * found by searching that model's deep index with the feature's description.
- * Nothing crosses between models except meaning.
+ * The nearest features in the *other* model to one feature, found by searching
+ * that model with this feature's own description. Nothing crosses between
+ * models except meaning.
  */
-export async function searchCounterpart(source: Feature, target: ModelId): Promise<TsResult> {
-  const res = await client.multiSearch.perform({
-    searches: [
-      {
-        collection: "features_deep",
-        preset: "roamer_deep",
-        q: source.description,
-        filter_by: `model:=${target}`,
-        per_page: 40,
-      },
-    ],
-  });
-  return (res.results as unknown as TsResult[])[0];
+export async function searchCounterpart(source: Feature, target: ModelId): Promise<ModelHits> {
+  const { results } = await searchModels(source.description, [target]);
+  return results[target];
 }
 
-export function perLayerCounts(result: TsResult): Record<number, number> {
-  const facet = result.facet_counts?.find((f) => f.field_name === "layer");
-  const out: Record<number, number> = {};
-  for (const c of facet?.counts ?? []) out[Number(c.value)] = c.count;
-  return out;
+export function toFeatures(r: ModelHits, model: ModelId, sourceSet: string): Feature[] {
+  return r.hits.map((h) => ({
+    id: `${model}_${h.layer}_${h.index}`,
+    model,
+    layer: h.layer,
+    index: h.index,
+    description: h.description,
+    // reconstructed rather than stored: 59k copies of a predictable string is
+    // 5 MB of payload for something the manifest already determines
+    npUrl: `https://www.neuronpedia.org/${model}/${h.layer}-${sourceSet}/${h.index}`,
+    rel: Math.max(0, Math.min(1, h.score)),
+  }));
 }
+
+export const toEmbeddings = (r: ModelHits): (number[] | undefined)[] => r.embeddings;
+export const perLayerCounts = (r: ModelHits): Record<number, number> => r.perLayer;

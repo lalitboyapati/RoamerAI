@@ -6,14 +6,15 @@ export const smooth = (t: number) => t * t * t * (t * (6 * t - 15) + 10);
 /**
  * Density that counts as "saturated" — hits per 1,000 indexed descriptions.
  *
- * The deep preset caps its vector candidate pool at k=600, so `found` tops out
- * there: against Gemma's 26,603 indexed descriptions that is a density of 22.6,
- * against Llama's 32,565 it is 18.4. At the old value of 6 almost every real
- * query saturated — "sepsis", "unit tests" and "climate model" all returned a
- * flat 100 — and a verdict that reads "well represented" for everything tells
- * nobody anything. 16 puts saturation just under the ceiling both models can
- * reach, and leaves the thin concepts ("protein folding" at 35 hits, "kubernetes"
- * at 33) down in the weak band where they belong.
+ * Searching in the browser removed the ceiling this was first tuned against:
+ * the hosted index capped its candidate pool at 600, so `found` could never
+ * exceed it. It is now the true count of features above the similarity floor —
+ * "contract law" returns 872 rather than a clipped 600.
+ *
+ * Measured against the shipped index: sepsis 62, days of the week 58, protein
+ * folding 23, kubernetes 13, contract law and molecular biology 100. Broad
+ * concepts saturate, which is the honest reading of a concept a model holds
+ * everywhere; thin ones stay in the weak band where they belong.
  *
  * Still a heuristic with no evaluation behind it, and the UI says so.
  */

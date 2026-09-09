@@ -1,8 +1,8 @@
 import { create } from "zustand";
 import { coverageScore } from "./coverage";
-import { otherModel, perLayerCounts, searchCounterpart, searchModels, toEmbeddings, toFeatures } from "./search";
+import { onLoad, otherModel, searchCounterpart, searchModels, startSearch, toEmbeddings, toFeatures } from "./search";
 import { layoutFeatures } from "./geometry";
-import { MODEL_IDS, type Counterpart, type DragMode, type Feature, type Manifest, type ModelId, type ModelResult, type Shape, type View } from "./types";
+import { MODEL_IDS, type Counterpart, type DragMode, type Feature, type LoadState, type Manifest, type ModelId, type ModelResult, type Shape, type View } from "./types";
 
 /** The walkthrough's steps, in order; the name is also what each one points at. */
 export const GUIDE_ANCHORS = ["map", "score", "bands", "layers"] as const;
@@ -27,21 +27,26 @@ function writeSeen() {
 
 /**
  * Errors reach a stranger at a URL with nobody to interpret them, so they name
- * the problem and what to do rather than repeating a status line.
+ * the problem and what to do rather than repeating a status line. Everything
+ * the search needs is a static file on this origin, so a failure here is a
+ * broken download or a browser that cannot run the encoder.
  */
 function explain(e: unknown): string {
   const raw = e instanceof Error ? e.message : String(e);
   const low = raw.toLowerCase();
   if (low.includes("manifest.json")) {
-    return "the model manifest did not load, so there is nothing to draw. reload the page; if it keeps failing the build is missing public/manifest.json.";
+    return "the model manifest did not load, so there is nothing to draw. reload the page.";
   }
-  if (low.includes("401") || low.includes("403") || low.includes("api key") || low.includes("unauthor")) {
-    return "the search index refused the key this page is holding. it needs a search-only Typesense key in VITE_TYPESENSE_SEARCH_KEY.";
+  if (low.includes("/idx/")) {
+    return "the search index did not finish downloading. reload the page — the first visit pulls it once and every visit after is cached.";
   }
-  if (low.includes("fetch") || low.includes("network") || low.includes("timeout") || low.includes("econn") || low.includes("failed to connect")) {
-    return "cannot reach the search index. this page queries Typesense straight from the browser — there is no server in between — so the index is either down or not reachable from here.";
+  if (low.includes("wasm") || low.includes("onnx") || low.includes("backend")) {
+    return "this browser could not start the sentence encoder, which needs webassembly. try a current desktop browser, and check that no extension is blocking wasm.";
   }
-  return `the search index returned an error: ${raw}`;
+  if (low.includes("still loading")) {
+    return "the index is still loading. the first visit downloads it once; after that it is cached.";
+  }
+  return `the search could not run: ${raw}`;
 }
 
 interface State {
@@ -75,6 +80,8 @@ interface State {
   guideStep: number | null;
   /** the walkthrough runs once per browser, and never interrupts twice */
   guideSeen: boolean;
+  /** how far the one-time download of the index and encoder has got */
+  load: LoadState;
 
   loadManifest: () => Promise<void>;
   setQuery: (q: string) => void;
@@ -124,8 +131,12 @@ export const useStore = create<State>((set, get) => ({
   drag: "orbit",
   guideStep: null,
   guideSeen: readSeen(),
+  load: { phase: "index", loaded: 0, total: 0 },
 
   loadManifest: async () => {
+    // the index is big and one-time; start pulling it before anyone types
+    onLoad((load) => set({ load }));
+    void startSearch().catch((e) => set({ error: explain(e) }));
     try {
       const res = await fetch("/manifest.json");
       if (!res.ok) throw new Error(`manifest.json ${res.status}`);
@@ -185,18 +196,18 @@ export const useStore = create<State>((set, get) => ({
     const models = modelsFor(view);
     const mine = ++seq;
     set({ loading: true, error: null });
-    const t0 = performance.now();
     try {
-      const raw = await searchModels(query, models);
+      const { results: raw, ms } = await searchModels(query, models);
       if (mine !== seq) return; // a newer search already landed
-      const elapsed = Math.round(performance.now() - t0);
       const results: Partial<Record<ModelId, ModelResult>> = {};
-      raw.forEach((r, i) => {
-        const model = models[i];
-        if (r.error) throw new Error(r.error);
-        const perLayer = perLayerCounts(r);
+      for (const model of models) {
+        const r = raw[model];
+        const perLayer = r.perLayer;
         const layersHit = Object.values(perLayer).filter((n) => n > 0).length;
-        const laid = layoutFeatures(toFeatures(r), toEmbeddings(r));
+        const laid = layoutFeatures(
+          toFeatures(r, model, manifest.models[model].source_set),
+          toEmbeddings(r)
+        );
         results[model] = {
           found: r.found,
           perLayer,
@@ -204,9 +215,9 @@ export const useStore = create<State>((set, get) => ({
           features: laid.features,
           clusters: laid.clusters,
           score: coverageScore(r.found, layersHit, manifest.models[model]),
-          ms: r.search_time_ms ?? elapsed,
+          ms,
         };
-      });
+      }
       // The walkthrough annotates a resolved result, so it waits for one that
       // actually lit something up — a dark map explains itself in the rail instead.
       const lit = Object.values(results).some((r) => r.features.length > 0);
@@ -236,8 +247,9 @@ export const useStore = create<State>((set, get) => ({
     set({ counterpartLoading: true, isolated: null });
     try {
       const r = await searchCounterpart(source, target);
-      if (r.error) throw new Error(r.error);
-      set({ counterpart: { source, target, features: toFeatures(r) }, counterpartLoading: false });
+      const m = get().manifest;
+      const features = m ? toFeatures(r, target, m.models[target].source_set).slice(0, 40) : [];
+      set({ counterpart: { source, target, features }, counterpartLoading: false });
       if (view !== "compare") void get().run();
     } catch (e) {
       set({ counterpartLoading: false, error: explain(e) });

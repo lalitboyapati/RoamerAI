@@ -4,6 +4,7 @@ import type { View } from "../types";
 import { Examples } from "./Examples";
 import { Guide } from "./Guide";
 import { Intro, IntroPrompt } from "./Intro";
+import { Loader } from "./Loader";
 import { Guidance } from "./Guidance";
 import { LayerBar } from "./LayerBar";
 import { LayerPanel } from "./LayerPanel";
@@ -64,6 +65,7 @@ export function Hud() {
   const toggleSources = useStore((s) => s.toggleSources);
   const sourcesOpen = useStore((s) => s.sourcesOpen);
   const guideStep = useStore((s) => s.guideStep);
+  const ready = useStore((s) => s.load.phase === "ready");
   const input = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -141,14 +143,18 @@ export function Hud() {
           <span className="msg-arrow" aria-hidden> →</span>
         </p>
       )}
-      {!searched && !error && <IntroPrompt />}
+      {searched && !ready && !error && (
+        <p className="msg">the index is still loading — this runs the moment it lands.</p>
+      )}
+      {!searched && !error && ready && <IntroPrompt />}
 
       <LayerTicks />
       <LayerPanel />
       <Schematic />
 
       <div className="right-rail">
-        {!searched && !error && <Intro />}
+        <Loader />
+        {!searched && !error && ready && <Intro />}
         {manifest &&
           models.map((m) => (
             <div className="rail-block" key={m}>

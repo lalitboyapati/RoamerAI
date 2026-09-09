@@ -98,3 +98,50 @@ export interface ModelResult {
   ms: number;
   clusters: Cluster[];
 }
+
+/* --------------------------------------------------------------- the index
+   The corpus ships as static files and is searched in the browser; these are
+   the shapes that cross the worker boundary. */
+
+export interface IndexMeta {
+  version: number;
+  embedModel: string;
+  dims: number;
+  scale: number;
+  count: number;
+  models: Record<ModelId, { offset: number; count: number }>;
+}
+
+export interface Hit {
+  layer: number;
+  index: number;
+  description: string;
+  /** cosine similarity to the query, 0..1 */
+  score: number;
+}
+
+export interface ModelHits {
+  /** every feature above the floor, not a page of them */
+  found: number;
+  perLayer: Record<number, number>;
+  hits: Hit[];
+  embeddings: number[][];
+}
+
+export type WorkerIn =
+  | { type: "init" }
+  | { type: "search"; id: number; q: string; models: ModelId[] };
+
+export type WorkerOut =
+  | { type: "progress"; phase: "index" | "model"; loaded: number; total: number }
+  | { type: "phase"; phase: "index" | "model" }
+  | { type: "ready" }
+  | { type: "result"; id: number; results: Record<string, ModelHits>; ms: number }
+  | { type: "error"; id?: number; message: string };
+
+/** How far the one-time load of the index and the encoder has got. */
+export interface LoadState {
+  phase: "index" | "model" | "ready";
+  loaded: number;
+  total: number;
+}

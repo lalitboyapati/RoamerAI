@@ -91,35 +91,41 @@ bar chart — to fly to it and read what matched there.
 
 ## Deploy (Vercel)
 
-The frontend is a static Vite build; there is no server. Vercel serves the bundle,
-and the browser queries Typesense Cloud directly with a search-only key.
-
-**Vercel project settings**
+The site is a static build with no backend and no runtime third-party calls.
+Search runs in the visitor's browser against files served from the same origin.
 
 | Setting | Value |
 |---|---|
 | Root Directory | `frontend` |
-| Framework | Vite (detected; `frontend/vercel.json` pins it) |
+| Framework | Vite (pinned by `frontend/vercel.json`) |
 | Build Command | `npm run build` |
 | Output Directory | `dist` |
+| Environment variables | **none** |
 
-**Environment variables** — set all four for Production and Preview *before* the
-first build. Vite inlines `VITE_*` at build time, so changing one needs a redeploy.
+`npm run build` runs `scripts/prepare-assets.mjs` first, which copies the
+onnxruntime WebAssembly backend out of `node_modules` into `public/ort/` so it
+is served from this origin rather than a public CDN.
 
+What ships, and what the first visit costs (cached immutably afterwards):
+
+| Asset | Size | What it is |
+|---|---|---|
+| `public/idx/vecs.i8` | 22.7 MB | 59,168 feature embeddings, int8 |
+| `public/models/…/model_quantized.onnx` | 23 MB | MiniLM-L6 sentence encoder |
+| `public/ort/…asyncify.wasm` | 5.8 MB gz | ONNX runtime (build step, not committed) |
+| `public/idx/docs.json` | 1.1 MB gz | the descriptions |
+
+## Rebuilding the index
+
+Only needed when the corpus changes. Requires a local Typesense holding it:
+
+```bash
+docker run -d --name roamerai-ts -p 8108:8108 -v /tmp/typesense-data:/data \
+  typesense/typesense:30.2 --data-dir /data --api-key=roamerai-dev-admin --enable-cors
+python index_typesense.py setup && python index_typesense.py import deep
+python3 build_index.py                 # -> frontend/public/idx/
+cd frontend && node scripts/embed.mjs  # re-embed with the browser's own model
 ```
-VITE_TYPESENSE_HOST=<cluster>.a1.typesense.net
-VITE_TYPESENSE_PORT=443
-VITE_TYPESENSE_PROTOCOL=https
-VITE_TYPESENSE_SEARCH_KEY=<search-only key from `index_typesense.py setup`>
-```
-
-The search-only key ships inside the JavaScript bundle. That is what it is for —
-it is scoped to `documents:search` on `features_*` and can do nothing else. The
-admin key must never appear here.
-
-**The cluster needs the data.** Point `.env` at the Cloud cluster and run
-`python index_typesense.py setup`, then `import deep` (~4 min). Deep is the only
-collection the app queries now; `import fast` is optional.
 
 ## One-paragraph pitch
 
