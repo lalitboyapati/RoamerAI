@@ -969,12 +969,6 @@ figcaption { margin-top: 2px; text-transform: none; letter-spacing: 0.02em; line
 
 .stats.quiet { margin-top: 2px; font-size: 11px; color: var(--structure); }
 
-@media (max-width: 1120px) {
-  .profile-body { grid-template-columns: 1fr; gap: 44px; }
-  .profile-side { position: static; }
-  .landing-body { grid-template-columns: 1fr; gap: 56px; }
-}
-
 @media (max-width: 820px) {
   .landing, .profile { max-height: none; }
   .landing-lede { font-size: 14px; }
@@ -1115,3 +1109,12 @@ figcaption { margin-top: 2px; text-transform: none; letter-spacing: 0.02em; line
 }
 .save-row input::placeholder { color: var(--muted); }
 .save-row input:focus { border-bottom-color: var(--blue); }
+
+/* --------------------------------------------------------- narrow windows
+   These must be the last rules in the file: the grids they override are
+   defined further up, and at equal specificity source order decides. */
+@media (max-width: 1120px) {
+  .profile-body { grid-template-columns: minmax(0, 1fr); gap: 44px; }
+  .profile-side { position: static; }
+  .landing-body { grid-template-columns: minmax(0, 1fr); gap: 56px; }
+}
