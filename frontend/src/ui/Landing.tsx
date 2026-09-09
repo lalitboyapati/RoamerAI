@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useStore } from "../store";
 import { go } from "../route";
 import { Manual } from "./Manual";
+import { ModelPortrait } from "./ModelPortrait";
 
 /**
  * The way in. Pick the models, then pick what to do with them.
@@ -51,10 +52,10 @@ export function Landing() {
 
       <div className="landing-body">
         <div className="landing-choose">
+      <h1 className="landing-claim">Language models, taken apart into the patterns they learned.</h1>
       <p className="landing-lede">
-        Language models decomposed into the patterns they learned. Search a concept from
-        your field and watch which of those patterns respond, in which model, at which
-        depth.
+        Search a concept from your field and watch which of those patterns respond — in which
+        model, at which depth, and whether two models mean the same thing by it.
       </p>
 
       <span className="label">choose the models to compare</span>
@@ -65,11 +66,14 @@ export function Landing() {
           return (
             <li key={id}>
               <button type="button" className={on ? "pick on" : "pick"} onClick={() => toggle(id)}>
-                <span className="pick-mark" aria-hidden />
-                <span className="pick-name">{m.display}</span>
-                <span className="pick-spec">
-                  {m.nLayers} layers · {m.count.toLocaleString()} features indexed ·{" "}
-                  {m.width.toLocaleString()} per layer
+                <ModelPortrait id={id} model={m} />
+                <span className="pick-text">
+                  <span className="pick-name">{m.display}</span>
+                  <span className="pick-spec">
+                    <span className="pick-n">{m.nLayers}</span> layers ·{" "}
+                    <span className="pick-n">{m.count.toLocaleString()}</span> indexed of{" "}
+                    {(m.width * m.nLayers).toLocaleString()}
+                  </span>
                 </span>
                 <span className="pick-size">{(m.bytes / 1e6).toFixed(0)} mb</span>
               </button>
@@ -100,6 +104,9 @@ export function Landing() {
 
       <p className="landing-foot">
         no account, no server, nothing sent anywhere. the search runs in this tab.
+        <span className="landing-src">
+          feature descriptions from Neuronpedia · Gemma Scope and Llama Scope sparse autoencoders
+        </span>
       </p>
         </div>
 
