@@ -80,6 +80,9 @@ export function Hud() {
         <span className="tagline">
           does this model know your field — and where would you fine-tune it?
         </span>
+        <button type="button" className="focus-btn" onClick={() => go("layers")}>
+          layer grid
+        </button>
         <button type="button" className="focus-btn" onClick={() => go("profile")}>
           profile a domain
         </button>

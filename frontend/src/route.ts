@@ -5,11 +5,11 @@ import { useEffect, useState } from "react";
  * is one static file, and adding a dependency to read `location.hash` would be
  * a poor trade.
  */
-export type Route = "landing" | "atlas" | "profile";
+export type Route = "landing" | "atlas" | "profile" | "layers";
 
 const parse = (): Route => {
   const h = location.hash.replace(/^#\/?/, "");
-  return h === "atlas" || h === "profile" ? h : "landing";
+  return h === "atlas" || h === "profile" || h === "layers" ? h : "landing";
 };
 
 export const go = (r: Route) => {

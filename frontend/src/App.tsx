@@ -3,6 +3,7 @@ import { Scene } from "./scene/Scene";
 import { Hud } from "./ui/Hud";
 import { Landing } from "./ui/Landing";
 import { Profile } from "./ui/Profile";
+import { LayerGrid } from "./ui/LayerGrid";
 import { go, useRoute } from "./route";
 import { useStore } from "./store";
 
@@ -28,6 +29,7 @@ export default function App() {
 
   if (route === "landing") return <Landing />;
   if (route === "profile") return <Profile />;
+  if (route === "layers") return <LayerGrid />;
   return (
     <>
       <Scene />

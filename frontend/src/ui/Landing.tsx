@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useStore } from "../store";
 import { go } from "../route";
+import { Manual } from "./Manual";
 
 /**
  * The way in. Pick the models, then pick what to do with them.
@@ -98,6 +99,8 @@ export function Landing() {
       <p className="landing-foot">
         no account, no server, nothing sent anywhere. the search runs in this tab.
       </p>
+
+      <Manual />
     </div>
   );
 }
