@@ -1,37 +1,33 @@
-import { modelsFor, useStore } from "../store";
+import { useStore } from "../store";
+import type { ModelId } from "../types";
 
 /**
- * What the colours mean. Deep mode only: each lit feature is coloured by the
- * cluster its description embedding fell into, and named by the two words
- * that distinguish that cluster from the rest of the hits.
+ * What the colours mean, for one model. Each lit feature is coloured by the
+ * cluster its description embedding fell into, and named by the two words that
+ * distinguish that cluster from the rest of the hits.
+ *
+ * This used to live in the bottom-left corner, where in Compare it grew to two
+ * models' worth of rows and climbed straight through the tick column. The
+ * colours describe one model's points, so they now sit in that model's own
+ * block in the rail, next to its score and its verdict.
  */
-export function Legend() {
-  const mode = useStore((s) => s.mode);
-  const view = useStore((s) => s.view);
-  const results = useStore((s) => s.results);
-  const manifest = useStore((s) => s.manifest);
+export function Legend({ model }: { model: ModelId }) {
+  const clusters = useStore((s) => s.results[model]?.clusters);
 
-  if (mode !== "deep" || !manifest) return null;
-  const models = modelsFor(view).filter((m) => (results[m]?.clusters.length ?? 0) > 0);
-  if (!models.length) return null;
+  if (!clusters?.length) return null;
 
   return (
     <div className="legend">
       <span className="label">concept clusters</span>
-      {models.map((m) => (
-        <div key={m}>
-          {models.length > 1 && <p className="note">{manifest.models[m].display}</p>}
-          <ul>
-            {results[m]!.clusters.map((c) => (
-              <li key={c.id}>
-                <span className="swatch" style={{ background: c.colour }} />
-                <span>{c.label}</span>
-                <span className="count">{c.size}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      ))}
+      <ul>
+        {clusters.map((c) => (
+          <li key={c.id}>
+            <span className="swatch" style={{ background: c.colour }} />
+            <span>{c.label}</span>
+            <span className="count">{c.size}</span>
+          </li>
+        ))}
+      </ul>
       <p className="note">position is a PCA of what the descriptions mean, not of the model's weights.</p>
     </div>
   );

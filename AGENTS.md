@@ -1,6 +1,6 @@
 # AGENTS.md — how AI agents work in this repo
 
-You are one of several agents (and three humans) building RoamerAI in a single evening. Optimize for **a working demo at 10:15 PM**, not for elegance.
+You are one of several agents (and three humans) building RomirAI in a single evening. Optimize for **a working demo at 10:15 PM**, not for elegance.
 
 ## 1. Before you write anything
 

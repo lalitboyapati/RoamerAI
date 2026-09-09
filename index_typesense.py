@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-RoamerAI — Typesense indexing
+RomirAI — Typesense indexing
 =============================
 
 Creates the two collections, the two search presets, domain synonyms, a

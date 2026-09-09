@@ -1,4 +1,4 @@
-# VISUAL DIRECTION — RoamerAI
+# VISUAL DIRECTION — RomirAI
 
 **One rule above all others: the screen is black, and the model is the only thing in it.**
 
@@ -117,7 +117,7 @@ Keyboard: `/` focuses search · `1`/`2`/`3` switch model/model/compare · `f`/`d
 ## 6. HUD layout — text floating on black
 
 ```
- ROAMERAI                                     SEARCH A CONCEPT  ·  run a sentence        ?
+ ROMIRAI                                     SEARCH A CONCEPT  ·  run a sentence        ?
 
  ─────────────────────────────────────
   protein folding                                        fast · DEEP        gemma · llama · COMPARE

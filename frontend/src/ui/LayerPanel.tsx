@@ -47,7 +47,8 @@ export function LayerPanel() {
           <div className="layer-model" key={m}>
             <p className="layer-stat">
               <span className="model-name">{model.display}</span>
-              {model.width.toLocaleString()} features here
+              {model.width.toLocaleString()} features here ·{" "}
+              {(model.deep.per_layer[String(isolated)] ?? 0).toLocaleString()} searched
               {searched && ` · ${matched.toLocaleString()} matched`}
             </p>
             <LayerPlot model={m} layer={isolated} />
@@ -64,7 +65,9 @@ export function LayerPanel() {
               ))}
               {shown.length === 0 && (
                 <li className="none">
-                  {searched ? "nothing matched in this layer" : "search a concept to light these up"}
+                  {searched
+                    ? "nothing in the searched sample of this layer matched"
+                    : "search a concept to light these up"}
                 </li>
               )}
             </ul>

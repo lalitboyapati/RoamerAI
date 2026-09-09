@@ -1,14 +1,23 @@
-import type { ManifestModel, Mode } from "./types";
+import type { ManifestModel } from "./types";
 
 /** quintic smootherstep — the default easing (VISUAL-DIRECTION §4) */
 export const smooth = (t: number) => t * t * t * (t * (6 * t - 15) + 10);
 
 /**
- * Density that counts as "saturated", per mode. Tuned so that a solidly
- * represented concept ("protein folding" on Gemma) lands in the 60-80 band
- * in both modes despite deep being a ~1k/layer sample.
+ * Density that counts as "saturated" — hits per 1,000 indexed descriptions.
+ *
+ * The deep preset caps its vector candidate pool at k=600, so `found` tops out
+ * there: against Gemma's 26,603 indexed descriptions that is a density of 22.6,
+ * against Llama's 32,565 it is 18.4. At the old value of 6 almost every real
+ * query saturated — "sepsis", "unit tests" and "climate model" all returned a
+ * flat 100 — and a verdict that reads "well represented" for everything tells
+ * nobody anything. 16 puts saturation just under the ceiling both models can
+ * reach, and leaves the thin concepts ("protein folding" at 35 hits, "kubernetes"
+ * at 33) down in the weak band where they belong.
+ *
+ * Still a heuristic with no evaluation behind it, and the UI says so.
  */
-export const D0: Record<Mode, number> = { fast: 4.0, deep: 6.0 };
+export const D0 = 16.0;
 
 /**
  * Coverage 0-100 (docs/01-architecture.md §6): how many features fire for the
@@ -17,14 +26,13 @@ export const D0: Record<Mode, number> = { fast: 4.0, deep: 6.0 };
 export function coverageScore(
   found: number,
   layersHit: number,
-  model: ManifestModel,
-  mode: Mode
+  model: ManifestModel
 ): number {
-  const indexed = model[mode].total;
+  const indexed = model.deep.total;
   if (!indexed || !found) return 0;
   const density = found / (indexed / 1000);
   const spread = layersHit / model.n_layers;
-  const saturation = Math.min(1, Math.sqrt(density / D0[mode]));
+  const saturation = Math.min(1, Math.sqrt(density / D0));
   return Math.round(100 * saturation * (0.5 + 0.5 * spread));
 }
 

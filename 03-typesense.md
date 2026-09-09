@@ -4,7 +4,7 @@ Typesense docs: https://typesense.org/docs/latest/api/ (server 30.x). Everything
 
 ## 1. Feature-by-feature
 
-| # | Typesense feature | How RoamerAI uses it | Judge-facing line |
+| # | Typesense feature | How RomirAI uses it | Judge-facing line |
 |---|---|---|---|
 | 1 | **Collections with typed fields + facets** | `features_fast`, `features_deep`; `model` and `layer` are facets | — |
 | 2 | **Bulk import API** (`/documents/import`, JSONL, `action=upsert`) | 1.47M docs in 10k-line chunks; idempotent re-runs | "1.5M documents indexed in minutes" |

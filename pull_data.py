@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-RoamerAI — data pull
+RomirAI — data pull
 ====================
 
 Downloads SAE feature *explanations* (one short text description per feature)

@@ -1,5 +1,5 @@
 import Typesense from "typesense";
-import type { Feature, ModelId, Mode, TsResult } from "./types";
+import type { Feature, ModelId, TsResult } from "./types";
 
 export const otherModel = (m: ModelId): ModelId => (m === "gemma-2-2b" ? "llama3.1-8b" : "gemma-2-2b");
 
@@ -19,20 +19,18 @@ export const client = new Typesense.Client({
 
 /**
  * One federated multi_search covers every model on screen. Search parameters
- * live server-side in the presets (roamer_fast / roamer_deep) — the browser
- * only ever sends collection, preset, q and filter_by.
+ * live server-side in the roamer_deep preset — the browser only ever sends
+ * collection, preset, q and filter_by.
+ *
+ * Hybrid semantic search is the only mode there is: keyword-only matching made
+ * every multi-word concept a dead end for anyone who did not already know the
+ * index's vocabulary.
  */
-export async function searchModels(
-  q: string,
-  mode: Mode,
-  models: ModelId[]
-): Promise<TsResult[]> {
-  const collection = mode === "fast" ? "features_fast" : "features_deep";
-  const preset = mode === "fast" ? "roamer_fast" : "roamer_deep";
+export async function searchModels(q: string, models: ModelId[]): Promise<TsResult[]> {
   const res = await client.multiSearch.perform({
     searches: models.map((m) => ({
-      collection,
-      preset,
+      collection: "features_deep",
+      preset: "roamer_deep",
       q,
       filter_by: `model:=${m}`,
     })),
@@ -40,18 +38,15 @@ export async function searchModels(
   return res.results as unknown as TsResult[];
 }
 
-/** Deep gives us a real distance; fast only gives us rank order. */
-export function toFeatures(result: TsResult, mode: Mode): Feature[] {
+export function toFeatures(result: TsResult): Feature[] {
   const hits = result.hits ?? [];
-  return hits.map((h, i) => {
-    // Deep: cosine similarity (1 - distance) spreads smoothly over the hit set.
-    // The rank-fusion score decays as 1/rank, so all but the top few would barely glow.
+  return hits.map((h) => {
+    // Cosine similarity (1 - distance) spreads smoothly over the hit set. The
+    // rank-fusion score decays as 1/rank, so all but the top few would barely glow.
     const rel =
-      mode === "deep"
-        ? h.vector_distance !== undefined
-          ? 1 - h.vector_distance
-          : h.hybrid_search_info?.rank_fusion_score ?? 0.5
-        : 1 - i / Math.max(1, hits.length);
+      h.vector_distance !== undefined
+        ? 1 - h.vector_distance
+        : h.hybrid_search_info?.rank_fusion_score ?? 0.5;
     return {
       id: h.document.id,
       model: h.document.model,
@@ -64,7 +59,7 @@ export function toFeatures(result: TsResult, mode: Mode): Feature[] {
   });
 }
 
-/** Embedding per hit, in hit order (deep only; fast hits have none). */
+/** Embedding per hit, in hit order. */
 export function toEmbeddings(result: TsResult): (number[] | undefined)[] {
   return (result.hits ?? []).map((h) => h.document.embedding);
 }

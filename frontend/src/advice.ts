@@ -32,6 +32,8 @@ export interface Diagnosis {
   gaps: number[];
   /** the contiguous run of layers worth targeting first */
   focus: [number, number] | null;
+  /** what a thin or dark result does and does not prove; only set when it is thin or dark */
+  caveat: string | null;
 }
 
 const VERDICT_TEXT: Record<Verdict, { headline: string }> = {
@@ -108,8 +110,15 @@ export function diagnose(
 
   const range = focus ? (focus[0] === focus[1] ? `layer ${focus[0]}` : `layers ${focus[0]}–${focus[1]}`) : null;
 
+  // What the search actually covered, so a dark map can be read honestly: the
+  // deep index is a per-layer sample of the model's features, not all of them.
+  const sampled = Math.round(model.deep.total / n);
+  const coverPct = Math.max(1, Math.round((sampled / model.width) * 100));
+  const sampleNote = `deep search reads a sample of ~${sampled.toLocaleString()} of this layer's ${model.width.toLocaleString()} feature descriptions (~${coverPct}%), and those descriptions are automated summaries`;
+
   let detail: string;
   let action: string;
+  let caveat: string | null = null;
 
   switch (verdict) {
     case "strong":
@@ -127,10 +136,12 @@ export function diagnose(
       action = range
         ? `Prompting will not fix this. Plan domain-adaptive training on in-house text, and target adapters at ${range} first.`
         : `Prompting will not fix this. Plan domain-adaptive training on in-house text before relying on this model.`;
+      caveat = `Read this as a weak signal, not a measurement: ${sampleNote}. A concept can also be split across features too general to name it — try the broader field as well before concluding.`;
       break;
     default:
-      detail = `No feature in this model has a description matching "${q}".`;
-      action = `Either the wording is off — try deep mode, which matches meaning rather than words — or the model genuinely has no representation to build on.`;
+      detail = `Nothing in ${model.display}'s feature descriptions matches "${q}".`;
+      action = `A dark map is a real answer: there is no ready-made representation here to prompt against, so this domain would have to be trained in rather than asked for.`;
+      caveat = `It is evidence, not proof: ${sampleNote}, so a concept can be present under wording the search never sees. Try the field rather than the term — if that stays dark too, treat it as absent.`;
   }
 
   return {
@@ -141,5 +152,6 @@ export function diagnose(
     bands,
     gaps,
     focus,
+    caveat,
   };
 }

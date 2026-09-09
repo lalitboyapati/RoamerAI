@@ -44,6 +44,7 @@ export function Guidance({ model }: { model: ModelId }) {
       </div>
 
       <p className="action">{d.action}</p>
+      {d.caveat && <p className="caveat">{d.caveat}</p>}
 
       {d.focus && (
         <button

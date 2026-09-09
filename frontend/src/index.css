@@ -117,7 +117,7 @@ header {
   outline: none;
   transition: border-color 150ms;
 }
-.field input::placeholder { color: var(--structure); }
+.field input::placeholder { color: var(--muted); }
 .field input:focus { border-bottom-color: var(--blue); }
 
 .toggle { display: flex; flex-direction: column; gap: 8px; padding-bottom: 5px; }
@@ -191,7 +191,6 @@ header {
   letter-spacing: 0.06em;
   font-variant-numeric: tabular-nums;
   text-align: right;
-  opacity: 0.55;
 }
 .tick-mark {
   width: 12px;
@@ -201,7 +200,7 @@ header {
 }
 .tick.hit .tick-mark { background: var(--blue-deep); width: 18px; }
 .tick:hover .tick-name,
-.tick.on .tick-name { opacity: 1; color: var(--yellow); }
+.tick.on .tick-name { color: var(--yellow); }
 .tick:hover .tick-mark,
 .tick.on .tick-mark { background: var(--yellow); width: 26px; }
 .tick-count {
@@ -222,10 +221,18 @@ header {
   flex-direction: column;
   gap: 26px;
   overflow-y: auto;
-  scrollbar-width: none;
+  overscroll-behavior: contain;
+  /* In Compare this column holds two full readings and will not fit. A hidden
+     scrollbar made a clipped verdict look like the end of the text, so the rail
+     keeps a hairline of its own palette. */
+  scrollbar-width: thin;
+  scrollbar-color: var(--structure) transparent;
   pointer-events: auto;
 }
-.right-rail::-webkit-scrollbar { display: none; }
+.right-rail::-webkit-scrollbar { width: 3px; }
+.right-rail::-webkit-scrollbar-track { background: transparent; }
+.right-rail::-webkit-scrollbar-thumb { background: var(--structure); }
+.right-rail:hover::-webkit-scrollbar-thumb { background: var(--muted); }
 
 .rail-block { display: flex; flex-direction: column; gap: 12px; flex: 0 0 auto; }
 
@@ -392,17 +399,8 @@ figcaption { margin-top: 2px; text-transform: none; letter-spacing: 0.02em; line
   * { animation: none !important; transition: none !important; }
 }
 
-/* ------------------------------------------------ bottom-left: legend + counterpart */
-.bottom-left {
-  position: absolute;
-  left: 30px;
-  bottom: 48px;
-  width: min(340px, 30vw);
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  pointer-events: auto;
-}
+/* ------------------------------------------------ cluster legend + counterpart */
+.legend { display: flex; flex-direction: column; }
 .legend ul, .counterpart ul { list-style: none; margin: 8px 0 0; padding: 0; }
 .legend li {
   display: flex; align-items: baseline; gap: 8px;
@@ -508,7 +506,7 @@ figcaption { margin-top: 2px; text-transform: none; letter-spacing: 0.02em; line
 .sources li a:hover { color: var(--white); }
 .sources li a:hover .src-desc { text-decoration: underline; text-underline-offset: 2px; }
 .src-loc { flex: none; color: var(--muted); font-variant-numeric: tabular-nums; font-size: 11px; }
-.src-idx { margin-left: 5px; color: var(--structure); }
+.src-idx { margin-left: 5px; color: var(--muted); }
 .src-desc { flex: 1; }
 .src-swatch { flex: none; width: 7px; height: 7px; border-radius: 50%; align-self: center; }
 
@@ -585,11 +583,145 @@ figcaption { margin-top: 2px; text-transform: none; letter-spacing: 0.02em; line
 .counterpart .more:hover,
 .layerpanel .more:hover { color: var(--yellow); border-bottom-color: var(--yellow); }
 
-/* compare view doubles the cluster list, so the corner scrolls instead of climbing */
-.bottom-left { max-height: 42vh; overflow-y: auto; scrollbar-width: none; }
-.bottom-left::-webkit-scrollbar { display: none; }
-
 /* the counterpart list sits on its own ground now, so rows can breathe */
 .counterpart li { margin-bottom: 7px; }
 .counterpart ul { margin-top: 10px; }
 .hud.focus .counterpart { display: none; }
+
+/* ---------------------------------------------------- browser surfaces
+   The parts nobody draws still belong to the palette: the caret, the
+   selection, and the ring a keyboard user navigates by. */
+::selection { background: var(--blue-deep); color: var(--void); }
+.field input { caret-color: var(--blue); }
+:focus-visible { outline: 1px solid var(--yellow); outline-offset: 3px; }
+
+/* --------------------------------------------------------------- the intro
+   What a stranger reads before the first search: what a feature is, and what
+   the rail will tell them. Text on the void, gone the moment they type. */
+.intro {
+  margin-top: 20px;
+  max-width: 46ch;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  pointer-events: none;
+}
+.intro p { margin: 0; font-size: 12.5px; line-height: 1.6; color: var(--muted); }
+.intro-prompt { margin: 18px 0 0; font-size: 13px; color: var(--text); max-width: 44ch; }
+.intro .intro-lede { font-size: 13px; color: var(--text); }
+.intro em { font-style: normal; color: var(--text); }
+
+.msg-arrow { color: var(--blue); }
+
+/* ---------------------------------------------------- the failure reading
+   Why a thin or dark result is evidence rather than proof. */
+.caveat {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.55;
+  color: var(--muted);
+  max-width: 44ch;
+}
+
+/* --------------------------------------------------------- the walkthrough
+   Four notes on the first resolved search, one at a time, always in the same
+   slot in the left margin. The subject turns yellow while its note is up —
+   the highlight is what attaches them, so the note never covers the model. */
+.guide {
+  position: absolute;
+  left: 160px;
+  top: 246px;
+  width: 300px;
+  pointer-events: auto;
+  animation: guide-in 340ms cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: 4;
+}
+@keyframes guide-in { from { opacity: 0; transform: translateY(7px); } }
+
+.guide-title {
+  margin: 0 0 6px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--yellow);
+}
+.guide-body { margin: 0; font-size: 12.5px; line-height: 1.6; color: var(--text); }
+
+.guide-foot {
+  margin-top: 14px;
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+}
+.guide-next { font-size: 12.5px; color: var(--blue); border-bottom: 1px solid var(--blue-deep); }
+.guide-next:hover { color: var(--yellow); border-bottom-color: var(--yellow); }
+.guide-skip { font-size: 11.5px; color: var(--muted); }
+.guide-skip:hover { color: var(--text); }
+.guide-count {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.08em;
+}
+
+/* The hover readout on a tick reaches across into the note's own column.
+   It is transient chrome competing with the thing being read, so it waits. */
+.hud[data-guide] .tick-count { display: none; }
+
+/* what each note is about, lit while it is up */
+.hud[data-guide="score"] .score { color: var(--yellow); }
+.hud[data-guide="bands"] .band-label { color: var(--yellow); }
+.hud[data-guide="bands"] .band-meter > span { background: var(--yellow); }
+.hud[data-guide="layers"] .ticks > .label { color: var(--yellow); }
+.hud[data-guide="layers"] .tick-mark { background: var(--yellow); }
+.hud[data-guide="layers"] .tick-name { color: var(--yellow); }
+
+.hud.focus .guide,
+.hud.focus .intro,
+.hud.focus .intro-prompt { display: none; }
+
+/* replaying it lives with the other things you can press */
+.replay {
+  margin-top: 13px;
+  font-size: 11.5px;
+  color: var(--blue);
+  border-bottom: 1px solid transparent;
+}
+.replay:hover { color: var(--yellow); border-bottom-color: var(--yellow); }
+
+.viewbar .gap { width: 18px; }
+
+/* the note slot narrows before the stack can reach it */
+@media (max-width: 1100px) {
+  .guide { width: 240px; }
+}
+
+/* ------------------------------------------------------------ too small
+   The model and its reading have to sit side by side, and below roughly a
+   tablet there is no arrangement of this that stays legible. Saying so is
+   better than handing someone eight panels stacked on top of each other. */
+.too-small { display: none; }
+
+@media (max-width: 820px) {
+  .hud > *:not(header):not(.too-small) { display: none; }
+  .hud header .focus-btn,
+  .hud header .tagline { display: none; }
+  /* the scene draws its own labels through a portal outside .hud */
+  .scene-label,
+  .node-label { display: none; }
+  .too-small {
+    display: block;
+    position: absolute;
+    left: 30px;
+    right: 30px;
+    top: 50%;
+    transform: translateY(-50%);
+    margin: 0;
+    max-width: 34ch;
+    font-size: 13.5px;
+    line-height: 1.65;
+    color: var(--muted);
+  }
+  .too-small strong { font-weight: inherit; color: var(--text); letter-spacing: 0.16em; }
+}

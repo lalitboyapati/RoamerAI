@@ -1,7 +1,9 @@
 import { useEffect, useRef } from "react";
-import { modelsFor, useStore } from "../store";
-import type { Mode, Shape, View } from "../types";
+import { GUIDE_ANCHORS, modelsFor, useStore } from "../store";
+import type { View } from "../types";
 import { Examples } from "./Examples";
+import { Guide } from "./Guide";
+import { Intro, IntroPrompt } from "./Intro";
 import { Guidance } from "./Guidance";
 import { LayerBar } from "./LayerBar";
 import { LayerPanel } from "./LayerPanel";
@@ -13,14 +15,6 @@ import { CounterpartPanel } from "./Counterpart";
 import { Sources } from "./Sources";
 import { ViewBar } from "./ViewBar";
 
-const MODES: { id: Mode; label: string }[] = [
-  { id: "fast", label: "fast" },
-  { id: "deep", label: "deep" },
-];
-const SHAPES: { id: Shape; label: string }[] = [
-  { id: "stack", label: "stack" },
-  { id: "globe", label: "globe" },
-];
 const VIEWS: { id: View; label: string }[] = [
   { id: "gemma-2-2b", label: "gemma" },
   { id: "llama3.1-8b", label: "llama" },
@@ -57,23 +51,19 @@ function Toggle<T extends string>({
 
 export function Hud() {
   const q = useStore((s) => s.q);
-  const mode = useStore((s) => s.mode);
   const view = useStore((s) => s.view);
   const loading = useStore((s) => s.loading);
   const error = useStore((s) => s.error);
   const results = useStore((s) => s.results);
   const manifest = useStore((s) => s.manifest);
   const setQuery = useStore((s) => s.setQuery);
-  const setMode = useStore((s) => s.setMode);
-  const askFor = useStore((s) => s.askFor);
   const setView = useStore((s) => s.setView);
   const focus = useStore((s) => s.focus);
   const toggleFocus = useStore((s) => s.toggleFocus);
-  const shape = useStore((s) => s.shape);
-  const setShape = useStore((s) => s.setShape);
   const setDrag = useStore((s) => s.setDrag);
   const toggleSources = useStore((s) => s.toggleSources);
   const sourcesOpen = useStore((s) => s.sourcesOpen);
+  const guideStep = useStore((s) => s.guideStep);
   const input = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -89,7 +79,10 @@ export function Hud() {
       if (e.key === "Escape") input.current?.blur();
       if (typing) return;
       if (e.key === "f") toggleFocus();
-      if (e.key === "g") setShape(useStore.getState().shape === "globe" ? "stack" : "globe");
+      if (e.key === "g") {
+        const { shape, setShape } = useStore.getState();
+        setShape(shape === "globe" ? "stack" : "globe");
+      }
       if (e.key === "s") toggleSources();
       if (e.key === " ") {
         e.preventDefault();
@@ -98,18 +91,21 @@ export function Hud() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [toggleFocus, setShape, toggleSources, setDrag]);
+  }, [toggleFocus, toggleSources, setDrag]);
 
   const models = modelsFor(view);
   const searched = q.trim().length > 0;
   const empty = searched && !loading && !error && models.every((m) => (results[m]?.found ?? 0) === 0);
 
   return (
-    <div className={focus ? "hud focus" : "hud"}>
+    <div
+      className={focus ? "hud focus" : "hud"}
+      data-guide={guideStep === null ? undefined : GUIDE_ANCHORS[guideStep]}
+    >
       {loading && <div className="progress" />}
 
       <header>
-        <span className="wordmark">ROAMERAI</span>
+        <span className="wordmark">ROMIRAI</span>
         <span className="tagline">
           does this model know your field — and where would you fine-tune it?
         </span>
@@ -133,9 +129,7 @@ export function Hud() {
             autoFocus
           />
         </label>
-        <Toggle options={MODES} active={mode} onPick={setMode} hint="match by" />
         <Toggle options={VIEWS} active={view} onPick={setView} hint="model" />
-        <Toggle options={SHAPES} active={shape} onPick={setShape} hint="shape" />
       </div>
 
       <Examples />
@@ -143,33 +137,25 @@ export function Hud() {
       {error && <p className="msg error">{error}</p>}
       {empty && (
         <p className="msg">
-          nothing matched every word.{" "}
-          {mode === "fast" ? (
-            <button type="button" className="inline-link" onClick={() => askFor(q, "deep")}>
-              match by meaning instead →
-            </button>
-          ) : (
-            "try fewer words."
-          )}
+          nothing lit up. what that does and does not prove is in the rail
+          <span className="msg-arrow" aria-hidden> →</span>
         </p>
       )}
-      {!searched && (
-        <p className="msg centred">
-          type a concept from your field — every feature that encodes it lights up
-        </p>
-      )}
+      {!searched && !error && <IntroPrompt />}
 
       <LayerTicks />
       <LayerPanel />
       <Schematic />
 
       <div className="right-rail">
+        {!searched && !error && <Intro />}
         {manifest &&
           models.map((m) => (
             <div className="rail-block" key={m}>
               <Readout model={m} display={manifest.models[m].display} />
               <LayerBar model={m} nLayers={manifest.models[m].n_layers} />
               <Guidance model={m} />
+              <Legend model={m} />
             </div>
           ))}
       </div>
@@ -178,11 +164,15 @@ export function Hud() {
 
       <CounterpartPanel />
 
-      <div className="bottom-left">
-        <Legend />
-      </div>
-
       <ViewBar />
+
+      <Guide />
+
+      <p className="too-small">
+        <strong>RomirAI</strong> draws a language model as a stack you turn, search and
+        pick apart. It needs a screen wide enough to hold the model and the reading side
+        by side — open it on a desktop.
+      </p>
     </div>
   );
 }

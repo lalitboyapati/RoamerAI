@@ -1,12 +1,12 @@
-# BUILD PROMPT — RoamerAI interactive frontend
+# BUILD PROMPT — RomirAI interactive frontend
 
-You are building the entire frontend for **RoamerAI** in one session. Read this whole document before writing code. Follow the build order exactly: each phase must run and be verified before you start the next. If you run out of time, a working Phase 3 beats a broken Phase 6.
+You are building the entire frontend for **RomirAI** in one session. Read this whole document before writing code. Follow the build order exactly: each phase must run and be verified before you start the next. If you run out of time, a working Phase 3 beats a broken Phase 6.
 
 ---
 
 ## 1. Mission
 
-RoamerAI lets someone **see inside a language model by searching it**.
+RomirAI lets someone **see inside a language model by searching it**.
 
 Interpretability research has decomposed Gemma 2 2B and Llama 3.1 8B into hundreds of thousands of *sparse-autoencoder features*, each with a plain-English description of what it fires on ("references to protein folding and tertiary structure"). ~1.5M of those descriptions are already indexed in Typesense.
 

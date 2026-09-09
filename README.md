@@ -1,4 +1,4 @@
-# RoamerAI
+# RomirAI
 
 **Search a concept. Watch the neurons that encode it light up. Know before you adopt a small model whether it actually represents your field.**
 
@@ -6,7 +6,7 @@ Built for the Typesense "Solve by Search" hackathon at Purdue (Sept 8, 2026, 5:3
 
 ## What this folder is
 
-A hand-off kit for a 3-person team plus AI coding agents. Everything an agent needs to build RoamerAI is here; nothing needs to be re-decided.
+A hand-off kit for a 3-person team plus AI coding agents. Everything an agent needs to build RomirAI is here; nothing needs to be re-decided.
 
 ```
 roamerai/
@@ -89,6 +89,38 @@ feature description; **deep** matches meaning, which is the only way multi-word
 clinical phrases land. Click any layer — in the stack, the tick column, or the
 bar chart — to fly to it and read what matched there.
 
+## Deploy (Vercel)
+
+The frontend is a static Vite build; there is no server. Vercel serves the bundle,
+and the browser queries Typesense Cloud directly with a search-only key.
+
+**Vercel project settings**
+
+| Setting | Value |
+|---|---|
+| Root Directory | `frontend` |
+| Framework | Vite (detected; `frontend/vercel.json` pins it) |
+| Build Command | `npm run build` |
+| Output Directory | `dist` |
+
+**Environment variables** — set all four for Production and Preview *before* the
+first build. Vite inlines `VITE_*` at build time, so changing one needs a redeploy.
+
+```
+VITE_TYPESENSE_HOST=<cluster>.a1.typesense.net
+VITE_TYPESENSE_PORT=443
+VITE_TYPESENSE_PROTOCOL=https
+VITE_TYPESENSE_SEARCH_KEY=<search-only key from `index_typesense.py setup`>
+```
+
+The search-only key ships inside the JavaScript bundle. That is what it is for —
+it is scoped to `documents:search` on `features_*` and can do nothing else. The
+admin key must never appear here.
+
+**The cluster needs the data.** Point `.env` at the Cloud cluster and run
+`python index_typesense.py setup`, then `import deep` (~4 min). Deep is the only
+collection the app queries now; `import fast` is optional.
+
 ## One-paragraph pitch
 
-Teams adopting a small, domain-specific LLM (for speed, cost, and fewer hallucinations) have no quick way to check whether that model has actually learned their field's concepts. RoamerAI indexes ~1.5M human-readable descriptions of sparse-autoencoder features from Gemma 2 2B and Llama 3.1 8B into Typesense. Type "protein folding" and the features that encode it glow inside a 3D map of the model, with a coverage score and a per-layer bar. Switch models to compare. Fast mode is exact keyword search over everything; Deep mode is Typesense hybrid semantic search. Nothing runs on a GPU.
+Teams adopting a small, domain-specific LLM (for speed, cost, and fewer hallucinations) have no quick way to check whether that model has actually learned their field's concepts. RomirAI indexes ~1.5M human-readable descriptions of sparse-autoencoder features from Gemma 2 2B and Llama 3.1 8B into Typesense. Type "protein folding" and the features that encode it glow inside a 3D map of the model, with a coverage score and a per-layer bar. Switch models to compare. Fast mode is exact keyword search over everything; Deep mode is Typesense hybrid semantic search. Nothing runs on a GPU.

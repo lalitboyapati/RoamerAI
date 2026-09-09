@@ -1,5 +1,4 @@
 export type ModelId = "gemma-2-2b" | "llama3.1-8b";
-export type Mode = "fast" | "deep";
 export type View = ModelId | "compare";
 /** how a model is drawn: stacked layer discs, or a globe with layers as latitudes */
 export type Shape = "stack" | "globe";
@@ -68,11 +67,11 @@ export interface Feature {
   npUrl?: string;
   /** 0..1 relevance, drives glow size + brightness */
   rel: number;
-  /** semantic (x,z) on the layer disc from PCA of the description embedding; absent in fast mode */
+  /** semantic (x,z) on the layer disc from PCA of the description embedding */
   pos?: [number, number];
   /** the same projection before it was mapped onto the disc annulus, each axis in -1..1 */
   pca?: [number, number];
-  /** k-means cluster over description embeddings; absent in fast mode */
+  /** k-means cluster over description embeddings */
   cluster?: number;
 }
 
@@ -97,6 +96,5 @@ export interface ModelResult {
   score: number;
   layersHit: number;
   ms: number;
-  /** deep mode only */
   clusters: Cluster[];
 }

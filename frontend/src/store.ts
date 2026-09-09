@@ -2,11 +2,50 @@ import { create } from "zustand";
 import { coverageScore } from "./coverage";
 import { otherModel, perLayerCounts, searchCounterpart, searchModels, toEmbeddings, toFeatures } from "./search";
 import { layoutFeatures } from "./geometry";
-import { MODEL_IDS, type Counterpart, type DragMode, type Feature, type Manifest, type ModelId, type ModelResult, type Mode, type Shape, type View } from "./types";
+import { MODEL_IDS, type Counterpart, type DragMode, type Feature, type Manifest, type ModelId, type ModelResult, type Shape, type View } from "./types";
+
+/** The walkthrough's steps, in order; the name is also what each one points at. */
+export const GUIDE_ANCHORS = ["map", "score", "bands", "layers"] as const;
+export const GUIDE_STEPS = GUIDE_ANCHORS.length;
+const GUIDE_KEY = "romirai.guide.seen";
+
+/** localStorage is unavailable in some privacy modes; a walkthrough is not worth throwing over. */
+function readSeen(): boolean {
+  try {
+    return localStorage.getItem(GUIDE_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+function writeSeen() {
+  try {
+    localStorage.setItem(GUIDE_KEY, "1");
+  } catch {
+    /* ignore */
+  }
+}
+
+/**
+ * Errors reach a stranger at a URL with nobody to interpret them, so they name
+ * the problem and what to do rather than repeating a status line.
+ */
+function explain(e: unknown): string {
+  const raw = e instanceof Error ? e.message : String(e);
+  const low = raw.toLowerCase();
+  if (low.includes("manifest.json")) {
+    return "the model manifest did not load, so there is nothing to draw. reload the page; if it keeps failing the build is missing public/manifest.json.";
+  }
+  if (low.includes("401") || low.includes("403") || low.includes("api key") || low.includes("unauthor")) {
+    return "the search index refused the key this page is holding. it needs a search-only Typesense key in VITE_TYPESENSE_SEARCH_KEY.";
+  }
+  if (low.includes("fetch") || low.includes("network") || low.includes("timeout") || low.includes("econn") || low.includes("failed to connect")) {
+    return "cannot reach the search index. this page queries Typesense straight from the browser — there is no server in between — so the index is either down or not reachable from here.";
+  }
+  return `the search index returned an error: ${raw}`;
+}
 
 interface State {
   q: string;
-  mode: Mode;
   view: View;
   manifest: Manifest | null;
   results: Partial<Record<ModelId, ModelResult>>;
@@ -32,12 +71,15 @@ interface State {
   sourcesOpen: boolean;
   /** what a plain left-drag does in the scene */
   drag: DragMode;
+  /** which annotation of the first-search walkthrough is showing, or null */
+  guideStep: number | null;
+  /** the walkthrough runs once per browser, and never interrupts twice */
+  guideSeen: boolean;
 
   loadManifest: () => Promise<void>;
   setQuery: (q: string) => void;
-  /** pick a concept and the mode that can actually find it, in one go */
-  askFor: (q: string, mode: Mode) => void;
-  setMode: (mode: Mode) => void;
+  /** run a concept straight away, skipping the keystroke debounce */
+  askFor: (q: string) => void;
   setView: (view: View) => void;
   setHovered: (id: string | null) => void;
   setHoveredLayer: (layer: number | null) => void;
@@ -50,6 +92,9 @@ interface State {
   setShape: (shape: Shape) => void;
   toggleSources: () => void;
   setDrag: (drag: DragMode) => void;
+  nextGuide: () => void;
+  endGuide: () => void;
+  replayGuide: () => void;
 }
 
 /** Which models the current view needs results for. */
@@ -61,7 +106,6 @@ let seq = 0;
 
 export const useStore = create<State>((set, get) => ({
   q: "",
-  mode: "fast",
   view: "gemma-2-2b",
   manifest: null,
   results: {},
@@ -78,6 +122,8 @@ export const useStore = create<State>((set, get) => ({
   shape: "stack",
   sourcesOpen: false,
   drag: "orbit",
+  guideStep: null,
+  guideSeen: readSeen(),
 
   loadManifest: async () => {
     try {
@@ -85,7 +131,7 @@ export const useStore = create<State>((set, get) => ({
       if (!res.ok) throw new Error(`manifest.json ${res.status}`);
       set({ manifest: (await res.json()) as Manifest });
     } catch (e) {
-      set({ error: e instanceof Error ? e.message : String(e) });
+      set({ error: explain(e) });
     }
   },
 
@@ -99,16 +145,10 @@ export const useStore = create<State>((set, get) => ({
     debounce = setTimeout(() => void get().run(), 250);
   },
 
-  askFor: (q, mode) => {
+  askFor: (q) => {
     clearTimeout(debounce);
-    set({ q, mode, isolated: null, counterpart: null });
+    set({ q, isolated: null, counterpart: null });
     void get().run();
-  },
-
-  setMode: (mode) => {
-    // a counterpart belongs to the result set that produced it
-    set({ mode, counterpart: null });
-    if (get().q.trim()) void get().run();
   },
 
   setView: (view) => {
@@ -128,7 +168,7 @@ export const useStore = create<State>((set, get) => ({
   resetCamera: () => set((s) => ({ isolated: null, frameNonce: s.frameNonce + 1 })),
 
   run: async () => {
-    const { q, mode, view, manifest } = get();
+    const { q, view, manifest } = get();
     const query = q.trim();
     if (!query || !manifest) return;
     const models = modelsFor(view);
@@ -136,7 +176,7 @@ export const useStore = create<State>((set, get) => ({
     set({ loading: true, error: null });
     const t0 = performance.now();
     try {
-      const raw = await searchModels(query, mode, models);
+      const raw = await searchModels(query, models);
       if (mine !== seq) return; // a newer search already landed
       const elapsed = Math.round(performance.now() - t0);
       const results: Partial<Record<ModelId, ModelResult>> = {};
@@ -145,21 +185,29 @@ export const useStore = create<State>((set, get) => ({
         if (r.error) throw new Error(r.error);
         const perLayer = perLayerCounts(r);
         const layersHit = Object.values(perLayer).filter((n) => n > 0).length;
-        const laid = layoutFeatures(toFeatures(r, mode), toEmbeddings(r));
+        const laid = layoutFeatures(toFeatures(r), toEmbeddings(r));
         results[model] = {
           found: r.found,
           perLayer,
           layersHit,
           features: laid.features,
           clusters: laid.clusters,
-          score: coverageScore(r.found, layersHit, manifest.models[model], mode),
+          score: coverageScore(r.found, layersHit, manifest.models[model]),
           ms: r.search_time_ms ?? elapsed,
         };
       });
-      set((s) => ({ results, loading: false, generation: s.generation + 1 }));
+      // The walkthrough annotates a resolved result, so it waits for one that
+      // actually lit something up — a dark map explains itself in the rail instead.
+      const lit = Object.values(results).some((r) => r.features.length > 0);
+      set((s) => ({
+        results,
+        loading: false,
+        generation: s.generation + 1,
+        guideStep: lit && !s.guideSeen && s.guideStep === null ? 0 : s.guideStep,
+      }));
     } catch (e) {
       if (mine !== seq) return;
-      set({ loading: false, error: e instanceof Error ? e.message : String(e) });
+      set({ loading: false, error: explain(e) });
     }
   },
 
@@ -178,10 +226,10 @@ export const useStore = create<State>((set, get) => ({
     try {
       const r = await searchCounterpart(source, target);
       if (r.error) throw new Error(r.error);
-      set({ counterpart: { source, target, features: toFeatures(r, "deep") }, counterpartLoading: false });
+      set({ counterpart: { source, target, features: toFeatures(r) }, counterpartLoading: false });
       if (view !== "compare") void get().run();
     } catch (e) {
-      set({ counterpartLoading: false, error: e instanceof Error ? e.message : String(e) });
+      set({ counterpartLoading: false, error: explain(e) });
     }
   },
 
@@ -194,4 +242,21 @@ export const useStore = create<State>((set, get) => ({
   toggleSources: () => set((s) => ({ sourcesOpen: !s.sourcesOpen })),
 
   setDrag: (drag) => set({ drag }),
+
+  nextGuide: () =>
+    set((s) => {
+      const next = (s.guideStep ?? 0) + 1;
+      if (next >= GUIDE_STEPS) {
+        writeSeen();
+        return { guideStep: null, guideSeen: true };
+      }
+      return { guideStep: next };
+    }),
+
+  endGuide: () => {
+    writeSeen();
+    set({ guideStep: null, guideSeen: true });
+  },
+
+  replayGuide: () => set({ guideStep: 0 }),
 }));

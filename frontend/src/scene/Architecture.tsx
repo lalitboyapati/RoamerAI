@@ -4,6 +4,7 @@ import * as THREE from "three";
 import { Html } from "@react-three/drei";
 import { C } from "../palette";
 import { DISC_RADIUS, LAYER_GAP } from "../coverage";
+import { useStore } from "../store";
 
 /**
  * The transformer itself, drawn the way 3Blue1Brown draws it: a residual stream
@@ -211,6 +212,7 @@ export function Architecture({
   const highlight = useMemo(() => buildLayerHighlight(C.YELLOW), []);
   const top = (nLayers - 1) * LAYER_GAP;
   const active = isolated ?? hoveredLayer;
+  const compare = useStore((s) => s.view) === "compare";
 
   return (
     <group position={[xOffset, 0, 0]}>
@@ -254,21 +256,29 @@ export function Architecture({
 
       <Signal nLayers={nLayers} />
 
-      {/* labels sit next to the thing they label, no boxes */}
-      <Html position={[-BRANCH_X - 0.5, 0.24 * LAYER_GAP, 0]} style={{ pointerEvents: "none" }}>
-        <div className="scene-label right">attention</div>
-      </Html>
-      <Html position={[BRANCH_X + 0.45, 0.66 * LAYER_GAP, 0]} style={{ pointerEvents: "none" }}>
-        <div className="scene-label">mlp</div>
-      </Html>
-      <Html position={[0, -EMBED_DROP * 1.45, 0]} style={{ pointerEvents: "none" }}>
-        <div className="scene-label centre">tokens in</div>
-      </Html>
+      {/* Labels sit next to the thing they label, no boxes. In Compare the two
+          stacks overlap on screen, and one set of anatomy labels per stack means
+          ten pieces of small grey text over two point clouds — so there the
+          model keeps its name and gives up the rest. The schematic inset in the
+          corner still explains a layer. */}
+      {!compare && (
+        <>
+          <Html position={[-BRANCH_X - 0.5, 0.24 * LAYER_GAP, 0]} style={{ pointerEvents: "none" }}>
+            <div className="scene-label right">attention</div>
+          </Html>
+          <Html position={[BRANCH_X + 0.45, 0.66 * LAYER_GAP, 0]} style={{ pointerEvents: "none" }}>
+            <div className="scene-label">mlp</div>
+          </Html>
+          <Html position={[0, -EMBED_DROP * 1.45, 0]} style={{ pointerEvents: "none" }}>
+            <div className="scene-label centre">tokens in</div>
+          </Html>
+          <Html position={[0.16, top * 0.5, 0]} style={{ pointerEvents: "none" }}>
+            <div className="scene-label">residual stream</div>
+          </Html>
+        </>
+      )}
       <Html position={[0, top + LAYER_GAP * 2.1, 0]} style={{ pointerEvents: "none" }}>
         <div className="scene-label centre">{label} · {nLayers} layers</div>
-      </Html>
-      <Html position={[0.16, top * 0.5, 0]} style={{ pointerEvents: "none" }}>
-        <div className="scene-label">residual stream</div>
       </Html>
     </group>
   );
