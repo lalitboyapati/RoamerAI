@@ -412,6 +412,23 @@ figcaption { margin-top: 2px; text-transform: none; letter-spacing: 0.02em; line
 .legend .count { color: var(--muted); margin-left: auto; font-variant-numeric: tabular-nums; }
 .legend .note { margin: 6px 0 0; font-size: 11px; color: var(--muted); line-height: 1.4; }
 
+.counterpart {
+  position: absolute;
+  left: 138px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: min(330px, 30vw);
+  max-height: 54vh;
+  overflow-y: auto;
+  scrollbar-width: none;
+  background: rgba(0, 0, 0, 0.88);
+  border: 1px solid var(--scaffold);
+  border-left: 1px solid var(--gold);
+  padding: 14px 16px 16px;
+  pointer-events: auto;
+  animation: slide 220ms ease-out;
+}
+.counterpart::-webkit-scrollbar { display: none; }
 .counterpart header { display: flex; align-items: baseline; gap: 10px; }
 .counterpart header .close { margin-left: auto; color: var(--muted); font-size: 11px; }
 .counterpart header .close:hover { color: var(--text); }
@@ -436,7 +453,6 @@ figcaption { margin-top: 2px; text-transform: none; letter-spacing: 0.02em; line
 .hud.focus .layerpanel,
 .hud.focus .schematic,
 .hud.focus .right-rail,
-.hud.focus .counterpart,
 .hud.focus .hint { display: none; }
 .hud.focus .field input { width: 200px; }
 .hud.focus .wordmark { opacity: 0.5; }
@@ -559,14 +575,21 @@ figcaption { margin-top: 2px; text-transform: none; letter-spacing: 0.02em; line
 .tick-count { position: absolute; left: 52px; white-space: nowrap; }
 
 /* the layer list stops at six; the rest is one click away */
+.counterpart .more,
 .layerpanel .more {
   margin-top: 4px;
   font-size: 11px;
   color: var(--blue);
   border-bottom: 1px solid transparent;
 }
+.counterpart .more:hover,
 .layerpanel .more:hover { color: var(--yellow); border-bottom-color: var(--yellow); }
 
 /* compare view doubles the cluster list, so the corner scrolls instead of climbing */
 .bottom-left { max-height: 42vh; overflow-y: auto; scrollbar-width: none; }
 .bottom-left::-webkit-scrollbar { display: none; }
+
+/* the counterpart list sits on its own ground now, so rows can breathe */
+.counterpart li { margin-bottom: 7px; }
+.counterpart ul { margin-top: 10px; }
+.hud.focus .counterpart { display: none; }

@@ -11,6 +11,7 @@ export function CounterpartPanel() {
   const manifest = useStore((s) => s.manifest);
   const clear = useStore((s) => s.clearCounterpart);
   const setHovered = useStore((s) => s.setHovered);
+  const toggleSources = useStore((s) => s.toggleSources);
 
   if (loading) {
     return (
@@ -28,7 +29,7 @@ export function CounterpartPanel() {
   const lo = layers.length ? Math.min(...layers) : null;
   const hi = layers.length ? Math.max(...layers) : null;
   const srcDepth = source.layer / (manifest.models[source.model].n_layers - 1);
-  const shown = features.slice(0, 6);
+  const shown = features.slice(0, 5);
 
   return (
     <aside className="counterpart">
@@ -60,6 +61,11 @@ export function CounterpartPanel() {
         ))}
         {features.length === 0 && <li className="none">try a feature with a more specific description</li>}
       </ul>
+      {features.length > shown.length && (
+        <button type="button" className="more" onClick={toggleSources}>
+          {features.length - shown.length} more · open sources →
+        </button>
+      )}
     </aside>
   );
 }

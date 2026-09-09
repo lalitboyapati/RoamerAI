@@ -106,12 +106,14 @@ export const useStore = create<State>((set, get) => ({
   },
 
   setMode: (mode) => {
-    set({ mode });
+    // a counterpart belongs to the result set that produced it
+    set({ mode, counterpart: null });
     if (get().q.trim()) void get().run();
   },
 
   setView: (view) => {
-    set({ view, isolated: null });
+    // the counterpart is drawn on the other model's stack, which a single-model view hides
+    set({ view, isolated: null, counterpart: null });
     if (get().q.trim()) void get().run();
   },
 
@@ -119,8 +121,9 @@ export const useStore = create<State>((set, get) => ({
 
   setHoveredLayer: (hoveredLayer) => set({ hoveredLayer }),
 
+  // the layer panel and the counterpart share a slot on screen, so opening one closes the other
   toggleIsolated: (layer) =>
-    set((s) => ({ isolated: layer === null || s.isolated === layer ? null : layer })),
+    set((s) => ({ isolated: layer === null || s.isolated === layer ? null : layer, counterpart: null })),
 
   resetCamera: () => set((s) => ({ isolated: null, frameNonce: s.frameNonce + 1 })),
 

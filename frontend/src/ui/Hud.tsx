@@ -176,8 +176,9 @@ export function Hud() {
 
       <Sources />
 
+      <CounterpartPanel />
+
       <div className="bottom-left">
-        <CounterpartPanel />
         <Legend />
       </div>
 
