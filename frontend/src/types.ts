@@ -3,6 +3,8 @@ export type Mode = "fast" | "deep";
 export type View = ModelId | "compare";
 /** how a model is drawn: stacked layer discs, or a globe with layers as latitudes */
 export type Shape = "stack" | "globe";
+/** what a plain left-drag does: turn the model, or move it across the screen */
+export type DragMode = "orbit" | "pan";
 
 export const MODEL_IDS: ModelId[] = ["gemma-2-2b", "llama3.1-8b"];
 

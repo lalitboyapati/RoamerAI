@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { modelsFor, useStore } from "../store";
-import type { Mode, Shape, View } from "../types";
+import type { DragMode, Mode, Shape, View } from "../types";
 import { Examples } from "./Examples";
 import { Guidance } from "./Guidance";
 import { LayerBar } from "./LayerBar";
@@ -10,10 +10,15 @@ import { Readout } from "./Readout";
 import { Schematic } from "./Schematic";
 import { Legend } from "./Legend";
 import { CounterpartPanel } from "./Counterpart";
+import { Sources } from "./Sources";
 
 const MODES: { id: Mode; label: string }[] = [
   { id: "fast", label: "fast" },
   { id: "deep", label: "deep" },
+];
+const DRAGS: { id: DragMode; label: string }[] = [
+  { id: "orbit", label: "turn" },
+  { id: "pan", label: "grab" },
 ];
 const SHAPES: { id: Shape; label: string }[] = [
   { id: "stack", label: "stack" },
@@ -69,21 +74,35 @@ export function Hud() {
   const toggleFocus = useStore((s) => s.toggleFocus);
   const shape = useStore((s) => s.shape);
   const setShape = useStore((s) => s.setShape);
+  const drag = useStore((s) => s.drag);
+  const setDrag = useStore((s) => s.setDrag);
+  const toggleSources = useStore((s) => s.toggleSources);
+  const sourcesOpen = useStore((s) => s.sourcesOpen);
   const input = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      // shortcuts must not fire while a control has focus: space activates buttons,
+      // and letters belong to the search field
+      const el = document.activeElement;
+      const typing = el instanceof HTMLInputElement || el instanceof HTMLButtonElement || el instanceof HTMLTextAreaElement;
       if (e.key === "/" && document.activeElement !== input.current) {
         e.preventDefault();
         input.current?.focus();
       }
       if (e.key === "Escape") input.current?.blur();
-      if (e.key === "f" && document.activeElement !== input.current) toggleFocus();
-      if (e.key === "g" && document.activeElement !== input.current) setShape(useStore.getState().shape === "globe" ? "stack" : "globe");
+      if (typing) return;
+      if (e.key === "f") toggleFocus();
+      if (e.key === "g") setShape(useStore.getState().shape === "globe" ? "stack" : "globe");
+      if (e.key === "s") toggleSources();
+      if (e.key === " ") {
+        e.preventDefault();
+        setDrag(useStore.getState().drag === "pan" ? "orbit" : "pan");
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [toggleFocus, setShape]);
+  }, [toggleFocus, setShape, toggleSources, setDrag]);
 
   const models = modelsFor(view);
   const searched = q.trim().length > 0;
@@ -98,6 +117,9 @@ export function Hud() {
         <span className="tagline">
           does this model know your field — and where would you fine-tune it?
         </span>
+        <button type="button" className="focus-btn" onClick={toggleSources} title="S">
+          {sourcesOpen ? "hide sources" : "sources"}
+        </button>
         <button type="button" className="focus-btn" onClick={toggleFocus} title="F">
           {focus ? "show panels" : "focus"}
         </button>
@@ -118,6 +140,7 @@ export function Hud() {
         <Toggle options={MODES} active={mode} onPick={setMode} hint="match by" />
         <Toggle options={VIEWS} active={view} onPick={setView} hint="model" />
         <Toggle options={SHAPES} active={shape} onPick={setShape} hint="shape" />
+        <Toggle options={DRAGS} active={drag} onPick={setDrag} hint="drag" />
       </div>
 
       <Examples />
@@ -156,12 +179,18 @@ export function Hud() {
           ))}
       </div>
 
+      <Sources />
+
       <div className="bottom-left">
         <CounterpartPanel />
         <Legend />
       </div>
 
-      <p className="hint">drag to orbit · shift-drag or right-drag to pan · scroll to zoom · click a layer to open it · click a lit feature for its counterpart · F for diagram only · G for globe · double-click or R to reset</p>
+      <p className="hint">
+        {drag === "pan" ? "drag to move · right-drag to turn" : "drag to turn · right-drag to move"} · space swaps ·
+        scroll to zoom · click a layer to open it · click a lit feature for its counterpart · S for sources · G for globe ·
+        F for diagram only · double-click or R to reset
+      </p>
     </div>
   );
 }

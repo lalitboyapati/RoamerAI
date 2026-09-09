@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { coverageScore } from "./coverage";
 import { otherModel, perLayerCounts, searchCounterpart, searchModels, toEmbeddings, toFeatures } from "./search";
 import { layoutFeatures } from "./geometry";
-import { MODEL_IDS, type Counterpart, type Feature, type Manifest, type ModelId, type ModelResult, type Mode, type Shape, type View } from "./types";
+import { MODEL_IDS, type Counterpart, type DragMode, type Feature, type Manifest, type ModelId, type ModelResult, type Mode, type Shape, type View } from "./types";
 
 interface State {
   q: string;
@@ -28,6 +28,10 @@ interface State {
   /** diagram-only: every panel hidden except the search field and the legend */
   focus: boolean;
   shape: Shape;
+  /** the Neuronpedia link list, kept out of the main ui until asked for */
+  sourcesOpen: boolean;
+  /** what a plain left-drag does in the scene */
+  drag: DragMode;
 
   loadManifest: () => Promise<void>;
   setQuery: (q: string) => void;
@@ -44,6 +48,8 @@ interface State {
   clearCounterpart: () => void;
   toggleFocus: () => void;
   setShape: (shape: Shape) => void;
+  toggleSources: () => void;
+  setDrag: (drag: DragMode) => void;
 }
 
 /** Which models the current view needs results for. */
@@ -70,6 +76,8 @@ export const useStore = create<State>((set, get) => ({
   counterpartLoading: false,
   focus: false,
   shape: "stack",
+  sourcesOpen: false,
+  drag: "orbit",
 
   loadManifest: async () => {
     try {
@@ -179,4 +187,8 @@ export const useStore = create<State>((set, get) => ({
   toggleFocus: () => set((s) => ({ focus: !s.focus })),
 
   setShape: (shape) => set((s) => ({ shape, frameNonce: s.frameNonce + 1 })),
+
+  toggleSources: () => set((s) => ({ sourcesOpen: !s.sourcesOpen })),
+
+  setDrag: (drag) => set({ drag }),
 }));

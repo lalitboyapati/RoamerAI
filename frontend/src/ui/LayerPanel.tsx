@@ -53,10 +53,8 @@ export function LayerPanel() {
                   onMouseEnter={() => setHovered(f.id)}
                   onMouseLeave={() => setHovered(null)}
                 >
-                  <a href={f.npUrl} target="_blank" rel="noreferrer">
-                    <span className="feat-idx">#{f.index}</span>
-                    {f.description}
-                  </a>
+                  <span className="feat-idx">#{f.index}</span>
+                  {f.description}
                 </li>
               ))}
               {shown.length === 0 && <li className="none">nothing matched in this layer</li>}

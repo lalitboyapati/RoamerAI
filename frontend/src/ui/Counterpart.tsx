@@ -52,12 +52,10 @@ export function CounterpartPanel() {
       <ul>
         {shown.map((f) => (
           <li key={f.id} onMouseEnter={() => setHovered(f.id)} onMouseLeave={() => setHovered(null)}>
-            <a href={f.npUrl} target="_blank" rel="noreferrer">
-              <span className="loc">
-                L{f.layer} #{f.index}
-              </span>
-              {f.description}
-            </a>
+            <span className="loc">
+              L{f.layer} #{f.index}
+            </span>
+            {f.description}
           </li>
         ))}
         {features.length === 0 && <li className="none">try a feature with a more specific description</li>}

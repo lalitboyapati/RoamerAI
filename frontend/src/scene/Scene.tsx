@@ -167,6 +167,7 @@ export function Scene() {
   const counterpart = useStore((s) => s.counterpart);
   const findCounterpart = useStore((s) => s.findCounterpart);
   const shape = useStore((s) => s.shape);
+  const drag = useStore((s) => s.drag);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -189,6 +190,7 @@ export function Scene() {
 
   return (
     <Canvas
+      className={drag === "pan" ? "grab-mode" : undefined}
       camera={{ position: [0, 17.5, 54], fov: 45 }}  // close to the framing shot, so frame one is already right
       dpr={[1, 1.75]}
       onCreated={({ scene }) => {
@@ -201,7 +203,22 @@ export function Scene() {
       }}
       onDoubleClick={() => resetCamera()}
     >
-      <OrbitControls makeDefault enableDamping dampingFactor={0.06} minDistance={4} maxDistance={90} />
+      <OrbitControls
+        makeDefault
+        enableDamping
+        dampingFactor={0.06}
+        minDistance={4}
+        maxDistance={90}
+        screenSpacePanning
+        panSpeed={1.1}
+        // grab mode swaps the buttons: left drags the model across the screen, right turns it
+        mouseButtons={{
+          LEFT: drag === "pan" ? THREE.MOUSE.PAN : THREE.MOUSE.ROTATE,
+          MIDDLE: THREE.MOUSE.DOLLY,
+          RIGHT: drag === "pan" ? THREE.MOUSE.ROTATE : THREE.MOUSE.PAN,
+        }}
+        touches={{ ONE: drag === "pan" ? THREE.TOUCH.PAN : THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN }}
+      />
       <Camera
         height={height}
         halfWidth={halfWidth}

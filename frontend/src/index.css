@@ -450,3 +450,47 @@ figcaption { margin-top: 2px; text-transform: none; letter-spacing: 0.02em; line
   letter-spacing: 0.04em;
   max-width: 208px;
 }
+
+/* ----------------------------------------------------------- sources drawer */
+.sources {
+  position: absolute;
+  right: 30px;
+  top: 92px;
+  bottom: 24px;
+  width: min(400px, 36vw);
+  padding: 16px 18px 18px;
+  background: rgba(0, 0, 0, 0.94);
+  border: 1px solid var(--scaffold);
+  overflow-y: auto;
+  scrollbar-width: none;
+  pointer-events: auto;
+  z-index: 3;
+}
+.sources::-webkit-scrollbar { display: none; }
+.sources header { display: flex; align-items: baseline; gap: 10px; }
+.sources header .close { margin-left: auto; color: var(--muted); font-size: 11px; }
+.sources header .close:hover { color: var(--text); }
+.src-count { font-size: 11px; color: var(--muted); letter-spacing: 0.06em; }
+.src-note { margin: 8px 0 14px; font-size: 11px; line-height: 1.5; color: var(--muted); }
+.src-model {
+  margin: 16px 0 6px; font-size: 11px; letter-spacing: 0.14em;
+  text-transform: uppercase; color: var(--blue);
+}
+.src-model.gold { color: var(--gold); }
+.sources ul { list-style: none; margin: 0; padding: 0; }
+.sources li { border-bottom: 1px solid rgba(34, 34, 34, 0.7); }
+.sources li a {
+  display: flex; align-items: baseline; gap: 8px;
+  padding: 7px 0; font-size: 12px; line-height: 1.4;
+  color: var(--text); text-decoration: none;
+}
+.sources li a:hover { color: var(--white); }
+.sources li a:hover .src-desc { text-decoration: underline; text-underline-offset: 2px; }
+.src-loc { flex: none; color: var(--muted); font-variant-numeric: tabular-nums; font-size: 11px; }
+.src-idx { margin-left: 5px; color: var(--structure); }
+.src-desc { flex: 1; }
+.src-swatch { flex: none; width: 7px; height: 7px; border-radius: 50%; align-self: center; }
+
+/* grab mode */
+.grab-mode { cursor: grab; }
+.grab-mode:active { cursor: grabbing; }
