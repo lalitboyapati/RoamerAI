@@ -435,3 +435,18 @@ figcaption { margin-top: 2px; text-transform: none; letter-spacing: 0.02em; line
 .hud.focus .hint { display: none; }
 .hud.focus .field input { width: 200px; }
 .hud.focus .wordmark { opacity: 0.5; }
+
+/* --------------------------------------------------- per-layer pca plot */
+.layerplot { margin: 10px 0 12px; padding: 0; }
+.layerplot svg { display: block; width: 100%; max-width: 208px; }
+.lp-frame { fill: none; stroke: var(--scaffold); stroke-width: 1; }
+.lp-axis { stroke: var(--scaffold); stroke-width: 1; }
+.lp-dot { cursor: pointer; transition: r 120ms, opacity 120ms; }
+.layerplot figcaption {
+  margin-top: 6px;
+  font-size: 10px;
+  line-height: 1.4;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+  max-width: 208px;
+}

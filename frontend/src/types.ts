@@ -68,6 +68,8 @@ export interface Feature {
   rel: number;
   /** semantic (x,z) on the layer disc from PCA of the description embedding; absent in fast mode */
   pos?: [number, number];
+  /** the same projection before it was mapped onto the disc annulus, each axis in -1..1 */
+  pca?: [number, number];
   /** k-means cluster over description embeddings; absent in fast mode */
   cluster?: number;
 }

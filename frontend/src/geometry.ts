@@ -158,6 +158,7 @@ export function layoutFeatures(features: Feature[], embeddings: (number[] | unde
     out[fi] = {
       ...features[fi],
       pos: [Math.cos(angle) * radius, Math.sin(angle) * radius],
+      pca: [x / maxR, y / maxR],
       cluster: assign[j],
     };
   });

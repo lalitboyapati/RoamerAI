@@ -1,4 +1,5 @@
 import { modelsFor, useStore } from "../store";
+import { LayerPlot } from "./LayerPlot";
 
 /**
  * What is actually happening at the layer you selected: the block sequence, the
@@ -44,6 +45,7 @@ export function LayerPanel() {
               <span className="model-name">{model.display}</span>
               {model.width.toLocaleString()} features here · {matched.toLocaleString()} matched
             </p>
+            <LayerPlot model={m} layer={isolated} />
             <ul>
               {shown.map((f) => (
                 <li
