@@ -1,11 +1,12 @@
 import { useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
+import { Html } from "@react-three/drei";
 import * as THREE from "three";
 import { C } from "../palette";
 import { nodePosition, smooth } from "../coverage";
-import { CLUSTER_COLOURS, featurePosition } from "../geometry";
+import { CLUSTER_COLOURS, GLOBE_RADIUS, featurePosition, globeLatitude, globePoint } from "../geometry";
 import { Architecture } from "./Architecture";
-import type { Feature } from "../types";
+import type { Feature, Shape } from "../types";
 
 const SCAFFOLD_PER_LAYER = 200;
 const IGNITE_MS = 320;
@@ -15,13 +16,14 @@ const LAYER_STAGGER_MS = 25;
  * Faint dots for features that exist and did not match — so the lit ones read
  * as a few out of many. Synthetic indices keep them off real feature positions.
  */
-function Scaffold({ model, nLayers, xOffset }: { model: string; nLayers: number; xOffset: number }) {
+function Scaffold({ model, nLayers, xOffset, shape }: { model: string; nLayers: number; xOffset: number; shape: Shape }) {
   const geometry = useMemo(() => {
     const arr = new Float32Array(nLayers * SCAFFOLD_PER_LAYER * 3);
     let o = 0;
     for (let L = 0; L < nLayers; L++) {
       for (let i = 0; i < SCAFFOLD_PER_LAYER; i++) {
-        const [x, y, z] = nodePosition(model, L, 1_000_000 + i, xOffset);
+        let [x, y, z] = nodePosition(model, L, 1_000_000 + i, xOffset);
+        if (shape === "globe") [x, y, z] = globePoint(L, nLayers, Math.atan2(z, x - xOffset), 0, xOffset);
         arr[o++] = x;
         arr[o++] = y;
         arr[o++] = z;
@@ -30,12 +32,84 @@ function Scaffold({ model, nLayers, xOffset }: { model: string; nLayers: number;
     const g = new THREE.BufferGeometry();
     g.setAttribute("position", new THREE.BufferAttribute(arr, 3));
     return g;
-  }, [model, nLayers, xOffset]);
+  }, [model, nLayers, xOffset, shape]);
 
   return (
     <points geometry={geometry}>
       <pointsMaterial color={C.SCAFFOLD} size={0.075} sizeAttenuation transparent opacity={0.95} />
     </points>
+  );
+}
+
+/**
+ * On the globe, layers are latitude rings. Each ring is a faint line plus an
+ * invisible torus so it can be hovered and picked like a disc in the stack.
+ */
+function GlobeRings({
+  nLayers,
+  xOffset,
+  label,
+  isolated,
+  hoveredLayer,
+  onHoverLayer,
+  onPickLayer,
+}: {
+  nLayers: number;
+  xOffset: number;
+  label: string;
+  isolated: number | null;
+  hoveredLayer: number | null;
+  onHoverLayer: (layer: number | null) => void;
+  onPickLayer: (layer: number) => void;
+}) {
+  const rings = useMemo(
+    () =>
+      Array.from({ length: nLayers }, (_, L) => {
+        const lat = globeLatitude(L, nLayers);
+        return { L, y: Math.sin(lat) * GLOBE_RADIUS, r: Math.cos(lat) * GLOBE_RADIUS };
+      }),
+    [nLayers]
+  );
+  const ringGeo = useMemo(() => {
+    const pts: THREE.Vector3[] = [];
+    for (let i = 0; i < 96; i++) {
+      const a = (i / 96) * Math.PI * 2;
+      pts.push(new THREE.Vector3(Math.cos(a), 0, Math.sin(a)));
+    }
+    return new THREE.BufferGeometry().setFromPoints(pts);
+  }, []);
+
+  return (
+    <group position={[xOffset, 0, 0]}>
+      {rings.map(({ L, y, r }) => {
+        const lit = isolated === L || hoveredLayer === L;
+        return (
+          <group key={L} position={[0, y, 0]}>
+            <lineLoop geometry={ringGeo} scale={[r, 1, r]}>
+              <lineBasicMaterial color={lit ? C.BLUE : C.STRUCTURE} transparent opacity={lit ? 0.9 : 0.35} />
+            </lineLoop>
+            <mesh
+              rotation={[Math.PI / 2, 0, 0]}
+              onPointerOver={(e) => {
+                e.stopPropagation();
+                onHoverLayer(L);
+              }}
+              onPointerOut={() => onHoverLayer(null)}
+              onClick={(e) => {
+                e.stopPropagation();
+                onPickLayer(L);
+              }}
+            >
+              <torusGeometry args={[r, 0.09, 4, 48]} />
+              <meshBasicMaterial visible={false} />
+            </mesh>
+          </group>
+        );
+      })}
+      <Html position={[0, -GLOBE_RADIUS - 0.9, 0]} center style={{ pointerEvents: "none" }}>
+        <div className="scene-label">{label}</div>
+      </Html>
+    </group>
   );
 }
 
@@ -53,13 +127,15 @@ interface MatchedProps {
   sourceId?: string | null;
   /** override every node's colour (used for the counterpart overlay) */
   tint?: string;
+  shape: Shape;
+  nLayers: number;
 }
 
 /**
  * The lit features. One instanced mesh, one useFrame — the ignition cascade is
  * a per-instance delay read in the frame loop, never a spring per node.
  */
-function Matched({ model, features, xOffset, generation, isolated, hovered, onHover, onPick, sourceId, tint }: MatchedProps) {
+function Matched({ model, features, xOffset, generation, isolated, hovered, onHover, onPick, sourceId, tint, shape, nLayers }: MatchedProps) {
   const mesh = useRef<THREE.InstancedMesh>(null);
   const halo = useRef<THREE.InstancedMesh>(null);
   const start = useRef(0);
@@ -75,7 +151,7 @@ function Matched({ model, features, xOffset, generation, isolated, hovered, onHo
   const layout = useMemo(() => {
     start.current = 0;
     return features.map((f) => ({
-      pos: featurePosition(f, xOffset),
+      pos: featurePosition(f, xOffset, shape, nLayers),
       delay: f.layer * LAYER_STAGGER_MS,
       rel: f.rel,
       id: f.id,
@@ -83,7 +159,7 @@ function Matched({ model, features, xOffset, generation, isolated, hovered, onHo
       colour: tint === undefined && f.cluster !== undefined ? palette[f.cluster] : palette.base,
     }));
     // generation forces a fresh cascade even when the same features come back
-  }, [features, model, xOffset, generation, tint, palette]);
+  }, [features, model, xOffset, generation, tint, palette, shape, nLayers]);
 
   useFrame(({ clock }) => {
     const m = mesh.current;
@@ -169,7 +245,6 @@ function Matched({ model, features, xOffset, generation, isolated, hovered, onHo
 export interface StackProps extends MatchedProps {
   /** the other model's analogues of the picked feature, drawn on this stack in gold */
   counterparts: Feature[];
-  nLayers: number;
   display: string;
   hoveredLayer: number | null;
   onHoverLayer: (layer: number | null) => void;
@@ -178,25 +253,37 @@ export interface StackProps extends MatchedProps {
 
 export function Stack({
   counterparts,
-  nLayers,
   display,
   hoveredLayer,
   onHoverLayer,
   onPickLayer,
   ...rest
 }: StackProps) {
+  const { nLayers, shape } = rest;
   return (
     <group>
-      <Architecture
-        nLayers={nLayers}
-        xOffset={rest.xOffset}
-        label={display}
-        isolated={rest.isolated}
-        hoveredLayer={hoveredLayer}
-        onHoverLayer={onHoverLayer}
-        onPickLayer={onPickLayer}
-      />
-      <Scaffold model={rest.model} nLayers={nLayers} xOffset={rest.xOffset} />
+      {shape === "stack" ? (
+        <Architecture
+          nLayers={nLayers}
+          xOffset={rest.xOffset}
+          label={display}
+          isolated={rest.isolated}
+          hoveredLayer={hoveredLayer}
+          onHoverLayer={onHoverLayer}
+          onPickLayer={onPickLayer}
+        />
+      ) : (
+        <GlobeRings
+          nLayers={nLayers}
+          xOffset={rest.xOffset}
+          label={display}
+          isolated={rest.isolated}
+          hoveredLayer={hoveredLayer}
+          onHoverLayer={onHoverLayer}
+          onPickLayer={onPickLayer}
+        />
+      )}
+      <Scaffold model={rest.model} nLayers={nLayers} xOffset={rest.xOffset} shape={shape} />
       <Matched {...rest} />
       {counterparts.length > 0 && (
         <Matched

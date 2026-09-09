@@ -1,5 +1,5 @@
 import { DISC_RADIUS, INNER_RADIUS, LAYER_GAP, nodePosition } from "./coverage";
-import type { Cluster, Feature } from "./types";
+import type { Cluster, Feature, Shape } from "./types";
 
 /**
  * Semantic layout for deep-mode hits.
@@ -173,8 +173,35 @@ export function layoutFeatures(features: Feature[], embeddings: (number[] | unde
   return { features: out, clusters };
 }
 
-/** World position of a feature: semantic if it has one, hashed otherwise. */
-export function featurePosition(f: Feature, xOffset: number): [number, number, number] {
-  if (f.pos) return [f.pos[0] + xOffset, f.layer * LAYER_GAP, f.pos[1]];
-  return nodePosition(f.model, f.layer, f.index, xOffset);
+export const GLOBE_RADIUS = 5.6;
+
+/** Latitude of a layer on the globe: layer 0 near the south pole, last layer near the north. */
+export function globeLatitude(layer: number, nLayers: number): number {
+  return -Math.PI / 2 + Math.PI * ((layer + 0.5) / nLayers);
+}
+
+/**
+ * A point on (or just above) the globe. `angle` is longitude, `lift` pushes the
+ * point off the surface in world units.
+ */
+export function globePoint(layer: number, nLayers: number, angle: number, lift: number, xOffset: number): [number, number, number] {
+  const lat = globeLatitude(layer, nLayers);
+  const R = GLOBE_RADIUS + lift;
+  return [Math.cos(lat) * Math.cos(angle) * R + xOffset, Math.sin(lat) * R, Math.cos(lat) * Math.sin(angle) * R];
+}
+
+/**
+ * World position of a feature. Stack: semantic (x,z) on the layer disc if it has
+ * one, hashed otherwise. Globe: same angle becomes longitude, and the semantic
+ * distance from the disc centre becomes a lift off the surface, so outliers float.
+ */
+export function featurePosition(f: Feature, xOffset: number, shape: Shape = "stack", nLayers = 26): [number, number, number] {
+  if (shape === "stack") {
+    if (f.pos) return [f.pos[0] + xOffset, f.layer * LAYER_GAP, f.pos[1]];
+    return nodePosition(f.model, f.layer, f.index, xOffset);
+  }
+  const [x, , z] = f.pos ? [f.pos[0], 0, f.pos[1]] : nodePosition(f.model, f.layer, f.index, 0);
+  const angle = Math.atan2(z, x);
+  const lift = f.pos ? 0.9 * (Math.hypot(x, z) - INNER_RADIUS) / (DISC_RADIUS - INNER_RADIUS) : 0.05;
+  return globePoint(f.layer, nLayers, angle, Math.max(0, lift), xOffset);
 }

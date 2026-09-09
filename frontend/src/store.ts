@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { coverageScore } from "./coverage";
 import { otherModel, perLayerCounts, searchCounterpart, searchModels, toEmbeddings, toFeatures } from "./search";
 import { layoutFeatures } from "./geometry";
-import { MODEL_IDS, type Counterpart, type Feature, type Manifest, type ModelId, type ModelResult, type Mode, type View } from "./types";
+import { MODEL_IDS, type Counterpart, type Feature, type Manifest, type ModelId, type ModelResult, type Mode, type Shape, type View } from "./types";
 
 interface State {
   q: string;
@@ -27,6 +27,7 @@ interface State {
   counterpartLoading: boolean;
   /** diagram-only: every panel hidden except the search field and the legend */
   focus: boolean;
+  shape: Shape;
 
   loadManifest: () => Promise<void>;
   setQuery: (q: string) => void;
@@ -42,6 +43,7 @@ interface State {
   findCounterpart: (id: string) => Promise<void>;
   clearCounterpart: () => void;
   toggleFocus: () => void;
+  setShape: (shape: Shape) => void;
 }
 
 /** Which models the current view needs results for. */
@@ -67,6 +69,7 @@ export const useStore = create<State>((set, get) => ({
   counterpart: null,
   counterpartLoading: false,
   focus: false,
+  shape: "stack",
 
   loadManifest: async () => {
     try {
@@ -174,4 +177,6 @@ export const useStore = create<State>((set, get) => ({
   clearCounterpart: () => set({ counterpart: null }),
 
   toggleFocus: () => set((s) => ({ focus: !s.focus })),
+
+  setShape: (shape) => set((s) => ({ shape, frameNonce: s.frameNonce + 1 })),
 }));

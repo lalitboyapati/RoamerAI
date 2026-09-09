@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { modelsFor, useStore } from "../store";
-import type { Mode, View } from "../types";
+import type { Mode, Shape, View } from "../types";
 import { Examples } from "./Examples";
 import { Guidance } from "./Guidance";
 import { LayerBar } from "./LayerBar";
@@ -14,6 +14,10 @@ import { CounterpartPanel } from "./Counterpart";
 const MODES: { id: Mode; label: string }[] = [
   { id: "fast", label: "fast" },
   { id: "deep", label: "deep" },
+];
+const SHAPES: { id: Shape; label: string }[] = [
+  { id: "stack", label: "stack" },
+  { id: "globe", label: "globe" },
 ];
 const VIEWS: { id: View; label: string }[] = [
   { id: "gemma-2-2b", label: "gemma" },
@@ -63,6 +67,8 @@ export function Hud() {
   const setView = useStore((s) => s.setView);
   const focus = useStore((s) => s.focus);
   const toggleFocus = useStore((s) => s.toggleFocus);
+  const shape = useStore((s) => s.shape);
+  const setShape = useStore((s) => s.setShape);
   const input = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -73,10 +79,11 @@ export function Hud() {
       }
       if (e.key === "Escape") input.current?.blur();
       if (e.key === "f" && document.activeElement !== input.current) toggleFocus();
+      if (e.key === "g" && document.activeElement !== input.current) setShape(useStore.getState().shape === "globe" ? "stack" : "globe");
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [toggleFocus]);
+  }, [toggleFocus, setShape]);
 
   const models = modelsFor(view);
   const searched = q.trim().length > 0;
@@ -110,6 +117,7 @@ export function Hud() {
         </label>
         <Toggle options={MODES} active={mode} onPick={setMode} hint="match by" />
         <Toggle options={VIEWS} active={view} onPick={setView} hint="model" />
+        <Toggle options={SHAPES} active={shape} onPick={setShape} hint="shape" />
       </div>
 
       <Examples />
@@ -153,7 +161,7 @@ export function Hud() {
         <Legend />
       </div>
 
-      <p className="hint">drag to orbit · shift-drag or right-drag to pan · scroll to zoom · click a layer to open it · click a lit feature for its counterpart · F for diagram only · double-click or R to reset</p>
+      <p className="hint">drag to orbit · shift-drag or right-drag to pan · scroll to zoom · click a layer to open it · click a lit feature for its counterpart · F for diagram only · G for globe · double-click or R to reset</p>
     </div>
   );
 }

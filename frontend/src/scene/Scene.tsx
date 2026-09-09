@@ -4,16 +4,21 @@ import { Html, OrbitControls } from "@react-three/drei";
 import * as THREE from "three";
 import { C } from "../palette";
 import { LAYER_GAP, smooth } from "../coverage";
-import { featurePosition } from "../geometry";
+import { GLOBE_RADIUS, featurePosition, globeLatitude } from "../geometry";
 import { modelsFor, useStore } from "../store";
 import { Stack } from "./Stack";
-import type { ModelId, View } from "../types";
+import type { ModelId, Shape, View } from "../types";
 
 const STACK_SPREAD = 7.5;
+const GLOBE_SPREAD = GLOBE_RADIUS + 3.2;
 
-export function offsetFor(view: View, model: ModelId): number {
+export function spreadFor(shape: Shape): number {
+  return shape === "globe" ? GLOBE_SPREAD : STACK_SPREAD;
+}
+
+export function offsetFor(view: View, model: ModelId, shape: Shape = "stack"): number {
   if (view !== "compare") return 0;
-  return model === "gemma-2-2b" ? -STACK_SPREAD : STACK_SPREAD;
+  return model === "gemma-2-2b" ? -spreadFor(shape) : spreadFor(shape);
 }
 
 /** Slow drift while nothing is searched; stops the moment results land. */
@@ -41,12 +46,18 @@ function Camera({
   halfWidth,
   focusY,
   nonce,
+  shape,
+  focusLayer,
+  nLayers,
 }: {
   height: number;
   halfWidth: number;
   focusY: number | null;
   /** changing this re-runs the ease, which is how "reset view" works */
   nonce: number;
+  shape: Shape;
+  focusLayer: number | null;
+  nLayers: number;
 }) {
   const { camera, controls } = useThree();
   const fromPos = useRef(new THREE.Vector3());
@@ -54,6 +65,19 @@ function Camera({
   const t = useRef(1);
 
   const [goalPos, goalTarget] = useMemo(() => {
+    if (shape === "globe") {
+      if (focusLayer !== null) {
+        // look at the ring from just outside the globe, level with it
+        const lat = globeLatitude(focusLayer, nLayers);
+        const y = Math.sin(lat) * GLOBE_RADIUS;
+        return [new THREE.Vector3(0, y * 1.15, GLOBE_RADIUS + 9), new THREE.Vector3(0, y, 0)];
+      }
+      const fov = ((camera as THREE.PerspectiveCamera).fov * Math.PI) / 180;
+      const aspect = (camera as THREE.PerspectiveCamera).aspect || 1.6;
+      const forWidth = (halfWidth + 2) / Math.tan(fov / 2) / aspect;
+      const forHeight = (GLOBE_RADIUS + 2) / Math.tan(fov / 2);
+      return [new THREE.Vector3(0, GLOBE_RADIUS * 0.35, Math.max(forWidth, forHeight)), new THREE.Vector3(0, 0, 0)];
+    }
     if (focusY !== null) {
       // close in on one layer, slightly above it so the blocks read
       return [
@@ -71,7 +95,7 @@ function Camera({
       new THREE.Vector3(0, height * 0.5, dist),
       new THREE.Vector3(0, height * 0.5, 0),
     ];
-  }, [focusY, height, halfWidth, camera, nonce]);
+  }, [focusY, height, halfWidth, camera, nonce, shape, focusLayer, nLayers]);
 
   useEffect(() => {
     const c = controls as { target: THREE.Vector3 } | null;
@@ -99,23 +123,26 @@ function HoverLabel() {
   const results = useStore((s) => s.results);
   const view = useStore((s) => s.view);
   const counterpart = useStore((s) => s.counterpart);
+  const shape = useStore((s) => s.shape);
+  const manifest = useStore((s) => s.manifest);
 
   const found = useMemo(() => {
     if (!hovered) return null;
     for (const m of modelsFor(view)) {
       const f = results[m]?.features.find((x) => x.id === hovered);
-      if (f) return { f, xOffset: offsetFor(view, m) };
+      if (f) return { f, xOffset: offsetFor(view, m, shape) };
     }
     const c = counterpart?.features.find((x) => x.id === hovered);
-    if (c && counterpart) return { f: c, xOffset: offsetFor(view, counterpart.target) };
+    if (c && counterpart) return { f: c, xOffset: offsetFor(view, counterpart.target, shape) };
     return null;
-  }, [hovered, results, view, counterpart]);
+  }, [hovered, results, view, counterpart, shape]);
 
   if (!found) return null;
   const { f, xOffset } = found;
+  const nLayers = manifest?.models[f.model].n_layers ?? 26;
 
   return (
-    <Html position={featurePosition(f, xOffset)} style={{ pointerEvents: "none" }}>
+    <Html position={featurePosition(f, xOffset, shape, nLayers)} style={{ pointerEvents: "none" }}>
       <div className="node-label">
         <span className="node-label-loc">layer {f.layer} · feature #{f.index}</span>
         {f.description}
@@ -139,6 +166,7 @@ export function Scene() {
   const frameNonce = useStore((s) => s.frameNonce);
   const counterpart = useStore((s) => s.counterpart);
   const findCounterpart = useStore((s) => s.findCounterpart);
+  const shape = useStore((s) => s.shape);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -152,7 +180,12 @@ export function Scene() {
   const anyResults = models.some((m) => (results[m]?.features.length ?? 0) > 0);
   const nLayers = manifest ? Math.max(...models.map((m) => manifest.models[m].n_layers)) : 26;
   const height = nLayers * LAYER_GAP;
-  const halfWidth = view === "compare" ? STACK_SPREAD + 4.2 : 4.2;
+  const halfWidth =
+    shape === "globe"
+      ? (view === "compare" ? GLOBE_SPREAD : 0) + GLOBE_RADIUS + 1
+      : view === "compare"
+        ? STACK_SPREAD + 4.2
+        : 4.2;
 
   return (
     <Canvas
@@ -174,6 +207,9 @@ export function Scene() {
         halfWidth={halfWidth}
         focusY={isolated === null ? null : isolated * LAYER_GAP}
         nonce={frameNonce}
+        shape={shape}
+        focusLayer={isolated}
+        nLayers={nLayers}
       />
       <IdleSpin active={!anyResults && isolated === null} />
 
@@ -184,7 +220,8 @@ export function Scene() {
             model={m}
             nLayers={manifest.models[m].n_layers}
             display={manifest.models[m].display}
-            xOffset={offsetFor(view, m)}
+            xOffset={offsetFor(view, m, shape)}
+            shape={shape}
             features={results[m]?.features ?? []}
             generation={generation}
             isolated={isolated}
