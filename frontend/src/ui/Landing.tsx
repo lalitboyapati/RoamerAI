@@ -49,6 +49,8 @@ export function Landing() {
         <span className="tagline">does this model know your field — and where would you fine-tune it?</span>
       </header>
 
+      <div className="landing-body">
+        <div className="landing-choose">
       <p className="landing-lede">
         Language models decomposed into the patterns they learned. Search a concept from
         your field and watch which of those patterns respond, in which model, at which
@@ -99,8 +101,10 @@ export function Landing() {
       <p className="landing-foot">
         no account, no server, nothing sent anywhere. the search runs in this tab.
       </p>
+        </div>
 
-      <Manual />
+        <Manual />
+      </div>
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { useStore } from "../store";
 import { centroidAgreement, searchModels, THIN } from "../search";
 import { coverageScore } from "../coverage";
@@ -102,6 +102,16 @@ export function Profile() {
 
   useEffect(() => setFolders(readFolders()), []);
 
+  // A set line wraps to two or three visual rows in a 320px column, so a row
+  // count taken from newlines clips the box. Measure what it actually needs.
+  const box = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(320, Math.max(74, el.scrollHeight))}px`;
+  }, [text]);
+
   if (!catalog) {
     return (
       <div className="profile">
@@ -174,7 +184,7 @@ export function Profile() {
       source: text,
       sets,
     };
-    const next = [f, ...folders];
+    const next = [f, ...folders.filter((x) => x.name !== f.name)];
     setFolders(next);
     writeFolders(next);
     setName("");
@@ -231,7 +241,7 @@ export function Profile() {
       const thin = (c?.found ?? 0) < THIN;
       return (
         <Fragment key={m}>
-          <td className={`num strong ${klass}`}>{c?.score ?? 0}</td>
+          <td className={`num strong grp ${klass}`}>{c?.score ?? 0}</td>
           <td className={`num ${klass}`}>{(c?.density ?? 0).toFixed(1)}</td>
           <td className={`num ${klass}${thin ? " thin" : ""}`}>
             {c?.found ? `${Math.round(c.depth * 100)}%` : "—"}
@@ -239,6 +249,8 @@ export function Profile() {
         </Fragment>
       );
     });
+
+  const ran = sets ?? null;
 
   return (
     <div className="profile">
@@ -256,59 +268,91 @@ export function Profile() {
         </button>
       </header>
 
-      <div className="profile-cols">
-        <div className="profile-input">
-          <span className="label">concept sets</span>
-          <p className="profile-help">
-            one set per line, as <em>name: member, member</em>. a line with no colon is a set of
-            one. every member is searched; the set is scored on its members.
-          </p>
-          <div className="presets">
-            {Object.keys(PRESETS).map((k) => (
-              <button type="button" key={k} onClick={() => setText(PRESETS[k])}>
-                {k}
+      <div className="profile-body">
+        <div className="profile-side">
+          <section className="side-block">
+            <span className="label">concept sets</span>
+            <div className="presets">
+              {Object.keys(PRESETS).map((k) => (
+                <button type="button" key={k} onClick={() => setText(PRESETS[k])}>
+                  {k}
+                </button>
+              ))}
+            </div>
+            <textarea ref={box} value={text} onChange={(e) => setText(e.target.value)} spellCheck={false} />
+            <p className="profile-help">
+              one set per line, as <em>name: member, member</em>. a line with no colon is a set of one.
+            </p>
+
+            {specs.length > 0 && (
+              <ul className="parsed">
+                {specs.map((sp) => (
+                  <li key={sp.name}>
+                    <span className="parsed-name">{sp.name}</span>
+                    <span className="parsed-terms">
+                      {sp.terms.map((t) => (
+                        <span key={t} className="parsed-term">
+                          {t}
+                        </span>
+                      ))}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            <div className="profile-run">
+              <button type="button" className="enter" disabled={!!busy || !termCount} onClick={() => void run()}>
+                {busy
+                  ? `running ${busy.at} of ${busy.of}…`
+                  : `profile ${specs.length} set${specs.length === 1 ? "" : "s"} · ${termCount} concept${termCount === 1 ? "" : "s"}`}{" "}
+                <span aria-hidden>→</span>
               </button>
-            ))}
-          </div>
-          <textarea value={text} onChange={(e) => setText(e.target.value)} spellCheck={false} rows={8} />
-          <div className="profile-run">
-            <button type="button" className="enter" disabled={!!busy || !termCount} onClick={() => void run()}>
-              {busy
-                ? `running ${busy.at} of ${busy.of}…`
-                : `profile ${specs.length} set${specs.length === 1 ? "" : "s"} · ${termCount} concept${termCount === 1 ? "" : "s"}`}{" "}
-              <span aria-hidden>→</span>
-            </button>
-            <span className="profile-against">against {models.map((m) => catalog.models[m].display).join(", ")}</span>
-          </div>
-          {err && <p className="msg error">{err}</p>}
+            </div>
+            <p className="profile-against">against {models.map((m) => catalog.models[m].display).join(", ")}</p>
+            {err && <p className="msg error">{err}</p>}
+          </section>
+
+          <section className="side-block folders">
+            <span className="label">
+              folders {folders.length > 0 && <span className="side-n">{folders.length}</span>}
+            </span>
+            {folders.length === 0 ? (
+              <p className="note">saved runs are kept here, in this browser.</p>
+            ) : (
+              <ul>
+                {folders.map((f) => (
+                  <li key={f.id}>
+                    <button type="button" className="folder-open" onClick={() => openFolder(f)}>
+                      <span className="folder-name">{f.name}</span>
+                      <span className="folder-meta">
+                        {f.sets.reduce((n, x) => n + x.terms.length, 0)} concepts ·{" "}
+                        {f.models.length} model{f.models.length === 1 ? "" : "s"} ·{" "}
+                        {new Date(f.at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      className="folder-del"
+                      onClick={() => remove(f.id)}
+                      aria-label={`delete ${f.name}`}
+                    >
+                      ×
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
         </div>
 
-        <aside className="folders">
-          <span className="label">folders</span>
-          {folders.length === 0 ? (
-            <p className="note">saved runs appear here. they stay in this browser.</p>
-          ) : (
-            <ul>
-              {folders.map((f) => (
-                <li key={f.id}>
-                  <button type="button" className="folder-open" onClick={() => openFolder(f)}>
-                    <span className="folder-name">{f.name}</span>
-                    <span className="folder-meta">
-                      {f.sets.length} set{f.sets.length === 1 ? "" : "s"} ·{" "}
-                      {f.models.length} model{f.models.length === 1 ? "" : "s"} ·{" "}
-                      {new Date(f.at).toLocaleDateString()}
-                    </span>
-                  </button>
-                  <button type="button" className="folder-del" onClick={() => remove(f.id)} aria-label={`delete ${f.name}`}>
-                    ×
-                  </button>
-                </li>
-              ))}
-            </ul>
+        <div className="profile-main">
+          {!ran && !busy && (
+            <p className="main-empty">
+              the table appears here: one row per set, expandable to its members, one column group
+              per model. pick a preset or write your own, then run it.
+            </p>
           )}
-        </aside>
-      </div>
-
       {sets && (
         <>
           <table className="matrix">
@@ -353,7 +397,7 @@ export function Profile() {
                       </button>
                     </td>
                     {cells(s.agg, "")}
-                    {cols.length > 1 && <td className="num c-agree" />}
+                    {cols.length > 1 && <td className="num c-agree grp" />}
                   </tr>
                   {open.has(s.name) &&
                     s.terms.map((t) => (
@@ -361,7 +405,7 @@ export function Profile() {
                         <td className="c-concept term">{t.term}</td>
                         {cells(t.per, "quiet")}
                         {cols.length > 1 && (
-                          <td className="num c-agree quiet">{t.agreement === null ? "—" : t.agreement.toFixed(3)}</td>
+                          <td className="num c-agree grp quiet">{t.agreement === null ? "—" : t.agreement.toFixed(3)}</td>
                         )}
                       </tr>
                     ))}
@@ -405,6 +449,8 @@ export function Profile() {
           )}
         </>
       )}
+        </div>
+      </div>
     </div>
   );
 }
