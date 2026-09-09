@@ -1,0 +1,131 @@
+import { create } from "zustand";
+import { coverageScore } from "./coverage";
+import { perLayerCounts, searchModels, toFeatures } from "./search";
+import { MODEL_IDS, type Manifest, type ModelId, type ModelResult, type Mode, type View } from "./types";
+
+interface State {
+  q: string;
+  mode: Mode;
+  view: View;
+  manifest: Manifest | null;
+  results: Partial<Record<ModelId, ModelResult>>;
+  loading: boolean;
+  error: string | null;
+  /** feature id under the cursor, or null */
+  hovered: string | null;
+  /** layer isolated by clicking a ring, a tick or a bar, or null */
+  isolated: number | null;
+  /** layer under the cursor anywhere (tick column, bar, or 3D ring) */
+  hoveredLayer: number | null;
+  /** bumped on every completed search so the scene can re-run its ignition */
+  generation: number;
+
+  loadManifest: () => Promise<void>;
+  setQuery: (q: string) => void;
+  /** pick a concept and the mode that can actually find it, in one go */
+  askFor: (q: string, mode: Mode) => void;
+  setMode: (mode: Mode) => void;
+  setView: (view: View) => void;
+  setHovered: (id: string | null) => void;
+  setHoveredLayer: (layer: number | null) => void;
+  toggleIsolated: (layer: number | null) => void;
+  run: () => Promise<void>;
+}
+
+/** Which models the current view needs results for. */
+export const modelsFor = (view: View): ModelId[] =>
+  view === "compare" ? MODEL_IDS : [view];
+
+let debounce: ReturnType<typeof setTimeout> | undefined;
+let seq = 0;
+
+export const useStore = create<State>((set, get) => ({
+  q: "",
+  mode: "fast",
+  view: "gemma-2-2b",
+  manifest: null,
+  results: {},
+  loading: false,
+  error: null,
+  hovered: null,
+  isolated: null,
+  hoveredLayer: null,
+  generation: 0,
+
+  loadManifest: async () => {
+    try {
+      const res = await fetch("/manifest.json");
+      if (!res.ok) throw new Error(`manifest.json ${res.status}`);
+      set({ manifest: (await res.json()) as Manifest });
+    } catch (e) {
+      set({ error: e instanceof Error ? e.message : String(e) });
+    }
+  },
+
+  setQuery: (q) => {
+    set({ q, isolated: null });
+    clearTimeout(debounce);
+    if (!q.trim()) {
+      set({ results: {}, loading: false, error: null });
+      return;
+    }
+    debounce = setTimeout(() => void get().run(), 250);
+  },
+
+  askFor: (q, mode) => {
+    clearTimeout(debounce);
+    set({ q, mode, isolated: null });
+    void get().run();
+  },
+
+  setMode: (mode) => {
+    set({ mode });
+    if (get().q.trim()) void get().run();
+  },
+
+  setView: (view) => {
+    set({ view, isolated: null });
+    if (get().q.trim()) void get().run();
+  },
+
+  setHovered: (hovered) => set({ hovered }),
+
+  setHoveredLayer: (hoveredLayer) => set({ hoveredLayer }),
+
+  toggleIsolated: (layer) =>
+    set((s) => ({ isolated: layer === null || s.isolated === layer ? null : layer })),
+
+  run: async () => {
+    const { q, mode, view, manifest } = get();
+    const query = q.trim();
+    if (!query || !manifest) return;
+    const models = modelsFor(view);
+    const mine = ++seq;
+    set({ loading: true, error: null });
+    const t0 = performance.now();
+    try {
+      const raw = await searchModels(query, mode, models);
+      if (mine !== seq) return; // a newer search already landed
+      const elapsed = Math.round(performance.now() - t0);
+      const results: Partial<Record<ModelId, ModelResult>> = {};
+      raw.forEach((r, i) => {
+        const model = models[i];
+        if (r.error) throw new Error(r.error);
+        const perLayer = perLayerCounts(r);
+        const layersHit = Object.values(perLayer).filter((n) => n > 0).length;
+        results[model] = {
+          found: r.found,
+          perLayer,
+          layersHit,
+          features: toFeatures(r, mode),
+          score: coverageScore(r.found, layersHit, manifest.models[model], mode),
+          ms: r.search_time_ms ?? elapsed,
+        };
+      });
+      set((s) => ({ results, loading: false, generation: s.generation + 1 }));
+    } catch (e) {
+      if (mine !== seq) return;
+      set({ loading: false, error: e instanceof Error ? e.message : String(e) });
+    }
+  },
+}));
