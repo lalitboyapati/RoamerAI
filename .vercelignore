@@ -1,0 +1,11 @@
+# The CLI uploads from the repo root (the project's Root Directory is
+# frontend/), and unlike the Git integration it does not read .gitignore.
+# None of this belongs in a build: the frontend is a static bundle.
+data/
+.venv/
+node_modules/
+frontend/node_modules/
+frontend/dist/
+*.jsonl
+.env
+.env.local
