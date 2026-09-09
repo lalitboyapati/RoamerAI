@@ -25,6 +25,8 @@ interface State {
   /** one feature and its nearest analogues in the other model */
   counterpart: Counterpart | null;
   counterpartLoading: boolean;
+  /** diagram-only: every panel hidden except the search field and the legend */
+  focus: boolean;
 
   loadManifest: () => Promise<void>;
   setQuery: (q: string) => void;
@@ -39,6 +41,7 @@ interface State {
   run: () => Promise<void>;
   findCounterpart: (id: string) => Promise<void>;
   clearCounterpart: () => void;
+  toggleFocus: () => void;
 }
 
 /** Which models the current view needs results for. */
@@ -63,6 +66,7 @@ export const useStore = create<State>((set, get) => ({
   frameNonce: 0,
   counterpart: null,
   counterpartLoading: false,
+  focus: false,
 
   loadManifest: async () => {
     try {
@@ -168,4 +172,6 @@ export const useStore = create<State>((set, get) => ({
   },
 
   clearCounterpart: () => set({ counterpart: null }),
+
+  toggleFocus: () => set((s) => ({ focus: !s.focus })),
 }));

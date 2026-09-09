@@ -61,6 +61,7 @@ interface MatchedProps {
  */
 function Matched({ model, features, xOffset, generation, isolated, hovered, onHover, onPick, sourceId, tint }: MatchedProps) {
   const mesh = useRef<THREE.InstancedMesh>(null);
+  const halo = useRef<THREE.InstancedMesh>(null);
   const start = useRef(0);
   const dummy = useMemo(() => new THREE.Object3D(), []);
   const colour = useMemo(() => new THREE.Color(), []);
@@ -86,6 +87,7 @@ function Matched({ model, features, xOffset, generation, isolated, hovered, onHo
 
   useFrame(({ clock }) => {
     const m = mesh.current;
+    const h = halo.current;
     if (!m || layout.length === 0) return;
     const now = clock.elapsedTime * 1000;
     if (start.current === 0) start.current = now;
@@ -107,14 +109,38 @@ function Matched({ model, features, xOffset, generation, isolated, hovered, onHo
       const brightness = (0.4 + 0.6 * n.rel) * grow * (dimmed ? 0.08 : 1);
       colour.copy(isHovered ? accent : n.colour).multiplyScalar(brightness);
       m.setColorAt(i, colour);
+
+      if (h) {
+        // halo: same centre, 2.6x the radius, faint and additive so overlaps bloom
+        dummy.scale.setScalar(radius * grow * 2.6 * (dimmed ? 0.4 : 1));
+        dummy.updateMatrix();
+        h.setMatrixAt(i, dummy.matrix);
+        colour.copy(isHovered ? accent : n.colour).multiplyScalar(brightness * 0.22);
+        h.setColorAt(i, colour);
+      }
     }
     m.instanceMatrix.needsUpdate = true;
     if (m.instanceColor) m.instanceColor.needsUpdate = true;
+    if (h) {
+      h.instanceMatrix.needsUpdate = true;
+      if (h.instanceColor) h.instanceColor.needsUpdate = true;
+    }
   });
 
   if (layout.length === 0) return null;
 
   return (
+    <group>
+    <instancedMesh
+      ref={halo}
+      key={`halo-${model}-${layout.length}-${generation}`}
+      args={[undefined, undefined, layout.length]}
+      frustumCulled={false}
+      raycast={() => null}
+    >
+      <sphereGeometry args={[1, 8, 8]} />
+      <meshBasicMaterial toneMapped={false} transparent opacity={0.6} blending={THREE.AdditiveBlending} depthWrite={false} />
+    </instancedMesh>
     <instancedMesh
       ref={mesh}
       key={`${model}-${layout.length}-${generation}`}
@@ -136,6 +162,7 @@ function Matched({ model, features, xOffset, generation, isolated, hovered, onHo
       <sphereGeometry args={[1, 10, 10]} />
       <meshBasicMaterial toneMapped={false} />
     </instancedMesh>
+    </group>
   );
 }
 

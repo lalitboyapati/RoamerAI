@@ -418,3 +418,20 @@ figcaption { margin-top: 2px; text-transform: none; letter-spacing: 0.02em; line
 .counterpart li a { color: inherit; text-decoration: none; }
 .counterpart li a:hover { color: var(--white); }
 .counterpart .none { color: var(--muted); }
+
+/* ------------------------------------------------------------ focus mode */
+.focus-btn { margin-left: auto; color: var(--muted); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; pointer-events: auto; }
+.focus-btn:hover { color: var(--text); }
+.hud header { display: flex; align-items: baseline; gap: 14px; }
+.hud.focus header .tagline,
+.hud.focus .toggle,
+.hud.focus .examples,
+.hud.focus .msg,
+.hud.focus .ticks,
+.hud.focus .layerpanel,
+.hud.focus .schematic,
+.hud.focus .right-rail,
+.hud.focus .counterpart,
+.hud.focus .hint { display: none; }
+.hud.focus .field input { width: 200px; }
+.hud.focus .wordmark { opacity: 0.5; }

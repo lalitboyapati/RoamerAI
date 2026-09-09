@@ -61,6 +61,8 @@ export function Hud() {
   const setMode = useStore((s) => s.setMode);
   const askFor = useStore((s) => s.askFor);
   const setView = useStore((s) => s.setView);
+  const focus = useStore((s) => s.focus);
+  const toggleFocus = useStore((s) => s.toggleFocus);
   const input = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -70,17 +72,18 @@ export function Hud() {
         input.current?.focus();
       }
       if (e.key === "Escape") input.current?.blur();
+      if (e.key === "f" && document.activeElement !== input.current) toggleFocus();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [toggleFocus]);
 
   const models = modelsFor(view);
   const searched = q.trim().length > 0;
   const empty = searched && !loading && !error && models.every((m) => (results[m]?.found ?? 0) === 0);
 
   return (
-    <div className="hud">
+    <div className={focus ? "hud focus" : "hud"}>
       {loading && <div className="progress" />}
 
       <header>
@@ -88,6 +91,9 @@ export function Hud() {
         <span className="tagline">
           does this model know your field — and where would you fine-tune it?
         </span>
+        <button type="button" className="focus-btn" onClick={toggleFocus} title="F">
+          {focus ? "show panels" : "focus"}
+        </button>
       </header>
 
       <div className="controls">
@@ -147,7 +153,7 @@ export function Hud() {
         <Legend />
       </div>
 
-      <p className="hint">drag to orbit · scroll to zoom · click a layer to open it · click a lit feature to find its counterpart · double-click or R to reset</p>
+      <p className="hint">drag to orbit · shift-drag or right-drag to pan · scroll to zoom · click a layer to open it · click a lit feature for its counterpart · F for diagram only · double-click or R to reset</p>
     </div>
   );
 }
